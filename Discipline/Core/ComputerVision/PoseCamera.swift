@@ -2,6 +2,9 @@ import AVFoundation
 import Vision
 import DisciplineCore
 
+/// Vision (iOS 18 SDK) declares its own `Joint`; refer to ours unambiguously.
+private typealias BodyJoint = DisciplineCore.Joint
+
 /// Front-camera capture + on-device body-pose detection.
 ///
 /// Frames are analysed with `VNDetectHumanBodyPoseRequest` on a background queue and delivered
@@ -30,7 +33,7 @@ final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, 
     /// ~15 analysed frames per second is plenty for push-up tempo and saves battery.
     private let minInterval: TimeInterval = 1.0 / 15
 
-    private static let jointMap: [(VNHumanBodyPoseObservation.JointName, Joint)] = [
+    private static let jointMap: [(VNHumanBodyPoseObservation.JointName, BodyJoint)] = [
         (.nose, .nose),
         (.leftShoulder, .leftShoulder), (.rightShoulder, .rightShoulder),
         (.leftElbow, .leftElbow), (.rightElbow, .rightElbow),
@@ -96,7 +99,7 @@ final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, 
         // Oriented (portrait) image: width = buffer height, height = buffer width.
         let aspectRatio = Double(CVPixelBufferGetHeight(pixelBuffer)) / Double(max(CVPixelBufferGetWidth(pixelBuffer), 1))
 
-        var landmarks: [Joint: Landmark] = [:]
+        var landmarks: [BodyJoint: Landmark] = [:]
         do {
             try handler.perform([request])
             if let observation = request.results?.first {
