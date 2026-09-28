@@ -4,6 +4,8 @@ import DisciplineCore
 struct ProfileView: View {
     @Environment(SessionStore.self) private var session
     @Environment(HabitsStore.self) private var store
+    @Environment(AppContainer.self) private var container
+    @State private var isResearcher = false
     @AppStorage("appearance") private var appearance: AppearancePreference = .dark
 
     @State private var confirmsDeletion = false
@@ -39,6 +41,21 @@ struct ProfileView: View {
                     .accessibilityIdentifier("profile.challenge")
                 }
 
+                if isResearcher || container.configuration.backend == .demo {
+                    Section {
+                        NavigationLink {
+                            ResearchDashboardView(service: researchService)
+                        } label: {
+                            Label("Research dashboard", systemImage: "chart.bar.doc.horizontal")
+                        }
+                        .accessibilityIdentifier("profile.research")
+                    } header: {
+                        Text("Research")
+                    } footer: {
+                        Text(isResearcher ? "Visible to study researchers only." : "Demo preview of the research views using your local data.")
+                    }
+                }
+
                 Section("Appearance") {
                     Picker("Theme", selection: $appearance) {
                         ForEach(AppearancePreference.allCases) { option in
@@ -67,6 +84,7 @@ struct ProfileView: View {
             .scrollContentBackground(.hidden)
             .screenBackground()
             .navigationTitle("Profile")
+            .task { isResearcher = await container.auth.isResearcher() }
             .confirmationDialog(
                 "Delete your account?",
                 isPresented: $confirmsDeletion,
@@ -79,6 +97,14 @@ struct ProfileView: View {
                 Text("This can't be undone.")
             }
         }
+    }
+
+    private var researchService: ResearchService {
+        if container.configuration.backend == .firebase {
+            return FirebaseResearchService()
+        }
+        let participantId = session.profile?.participantId ?? "P-DEMO"
+        return LocalResearchService { [store] in store.localResearchRecords(participantId: participantId) }
     }
 
     private func signOut() {

@@ -193,27 +193,24 @@ final class HabitsStore {
         restart()
     }
 
-    /// With an active challenge, the streak covers only its habits and days, under its rules.
+    /// Uses the same history definition as the server's research records: each day is resolved
+    /// under the challenge covering it (its habits and rules), or all habits outside challenges.
     private func recomputeStreak() {
-        let historyStart = today.adding(days: -Self.historyDays, calendar: calendar)
-        let scopedHabits: [Habit]
-        let from: DayKey
-        if let challenge = activeChallenge {
-            scopedHabits = habits.filter { $0.challengeId == challenge.id }
-            from = max(challenge.startDate, historyStart)
-        } else {
-            scopedHabits = habits
-            from = historyStart
-        }
-        streak = StreakCalculator.summarize(
-            habits: scopedHabits,
+        streak = StreakCalculator.summarizeHistory(
+            habits: habits,
             completions: completions,
             tasks: accountabilityTasks,
-            rules: rules,
-            from: from,
+            challenges: challenges,
+            from: today.adding(days: -Self.historyDays, calendar: calendar),
             today: today,
             calendar: calendar
         )
+    }
+
+    /// Research records for this participant computed on device (demo mode's research preview).
+    func localResearchRecords(participantId: String) -> [DailyRecord] {
+        DailyRecordBuilder.build(participantId: participantId, condition: condition, summary: streak, habits: habits,
+                                 completions: completions, tasks: accountabilityTasks)
     }
 
     private func completeFinishedChallenges() {

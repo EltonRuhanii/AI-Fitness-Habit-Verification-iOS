@@ -26,9 +26,10 @@ struct RootView: View {
         case .onboarding:
             OnboardingView()
         case .ready(let profile):
-            // Identity keyed by user so switching accounts rebuilds all per-user state.
+            // Keyed by user and condition so switching accounts, or a late server-side condition
+            // assignment, rebuilds all per-user state.
             MainTabView(profile: profile, container: container)
-                .id(profile.id)
+                .id("\(profile.id)-\(profile.trackingCondition.rawValue)")
         case .failed(let error):
             LaunchErrorView(error: error) { session.retry() }
         }

@@ -4,6 +4,8 @@ public struct StreakDay: Hashable, Sendable {
     public let resolution: DayResolution
     public let streakBefore: Int
     public let streakAfter: Int
+    /// The challenge in effect that day, if any.
+    public var challengeId: String? = nil
 }
 
 public struct StreakSummary: Hashable, Sendable {

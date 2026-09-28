@@ -72,6 +72,12 @@ final class FirebaseAuthenticationService: AuthenticationService {
         }
     }
 
+    func isResearcher() async -> Bool {
+        guard let user = auth.currentUser,
+              let result = try? await user.getIDTokenResult(forcingRefresh: true) else { return false }
+        return (result.claims["researcher"] as? Bool) == true
+    }
+
     private func normalized(_ email: String) -> String {
         email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }

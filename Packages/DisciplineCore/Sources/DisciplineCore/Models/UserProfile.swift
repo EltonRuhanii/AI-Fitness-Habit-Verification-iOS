@@ -35,6 +35,11 @@ public struct UserProfile: Codable, Identifiable, Hashable, Sendable {
     public var participantId: String
     public var trackingCondition: TrackingCondition
     public var activeChallengeId: String?
+    /// IANA time zone, so the server resolves research days in the participant's local calendar.
+    public var timeZone: String?
+    /// Set by the server when it assigns the condition (e.g. `server-permuted-block-4`).
+    public var conditionAssignedBy: String?
+    public var conditionAssignedAt: Date?
 
     public init(
         id: String,
@@ -47,7 +52,10 @@ public struct UserProfile: Codable, Identifiable, Hashable, Sendable {
         researchConsentAt: Date? = nil,
         participantId: String = ParticipantID.generate(),
         trackingCondition: TrackingCondition = .aiAssisted,
-        activeChallengeId: String? = nil
+        activeChallengeId: String? = nil,
+        timeZone: String? = TimeZone.current.identifier,
+        conditionAssignedBy: String? = nil,
+        conditionAssignedAt: Date? = nil
     ) {
         self.id = id
         self.email = email
@@ -60,6 +68,9 @@ public struct UserProfile: Codable, Identifiable, Hashable, Sendable {
         self.participantId = participantId
         self.trackingCondition = trackingCondition
         self.activeChallengeId = activeChallengeId
+        self.timeZone = timeZone
+        self.conditionAssignedBy = conditionAssignedBy
+        self.conditionAssignedAt = conditionAssignedAt
     }
 }
 

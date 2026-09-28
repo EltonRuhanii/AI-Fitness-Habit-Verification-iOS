@@ -70,6 +70,9 @@ final class DemoAuthenticationService: AuthenticationService {
         currentUser = nil
     }
 
+    /// Demo mode has no researcher accounts; the research screen shows local data instead.
+    func isResearcher() async -> Bool { false }
+
     /// Stable per-email uid so signing back in restores the same local demo data.
     private static func uid(for email: String) -> String {
         let normalized = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

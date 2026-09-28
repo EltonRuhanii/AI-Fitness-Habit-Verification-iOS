@@ -28,6 +28,7 @@ final class SessionStore {
     private let auth: AuthenticationService
     private let users: UserRepository
     private var listenTask: Task<Void, Never>?
+    private var profileTask: Task<Void, Never>?
     private var lastUser: AuthUser?
     /// Display name captured at registration. Firebase reports the new user before the
     /// name is committed to the auth profile, so the profile is created from this instead.
@@ -55,6 +56,8 @@ final class SessionStore {
 
     private func handle(_ user: AuthUser?) async {
         lastUser = user
+        profileTask?.cancel()
+        profileTask = nil
         guard let user else {
             phase = .signedOut
             return
@@ -63,11 +66,38 @@ final class SessionStore {
             let profile = try await loadOrCreateProfile(for: user)
             // Ignore stale results if the user signed out or switched accounts meanwhile.
             guard lastUser?.uid == user.uid else { return }
-            phase = profile.onboardingCompleted ? .ready(profile) : .onboarding(profile)
+            apply(profile)
+            observeProfile(uid: user.uid)
+            await syncTimeZone(profile)
         } catch {
             guard lastUser?.uid == user.uid else { return }
             phase = .failed(AppError.from(error))
         }
+    }
+
+    private func apply(_ profile: UserProfile) {
+        phase = profile.onboardingCompleted ? .ready(profile) : .onboarding(profile)
+    }
+
+    /// Keeps the session in sync with server-side profile changes (e.g. condition assignment).
+    private func observeProfile(uid: String) {
+        profileTask = Task { [weak self, users] in
+            do {
+                for try await profile in users.observeProfile(uid: uid) {
+                    guard let self, self.lastUser?.uid == uid, let profile else { continue }
+                    if profile != self.profile { self.apply(profile) }
+                }
+            } catch {
+                Log.data.error("Profile updates stopped: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    /// Research days are resolved in the participant's local calendar; keep the zone current.
+    private func syncTimeZone(_ profile: UserProfile) async {
+        let current = TimeZone.current.identifier
+        guard profile.timeZone != current else { return }
+        try? await updateProfile { $0.timeZone = current }
     }
 
     /// The profile is normally created right after registration, but creating it lazily here
@@ -80,7 +110,8 @@ final class SessionStore {
             id: user.uid,
             email: user.email ?? "",
             displayName: consumePendingDisplayName() ?? user.displayName ?? Self.fallbackName(from: user.email),
-            trackingCondition: ConditionAssignment.assign()
+            trackingCondition: ConditionAssignment.provisional(),
+            timeZone: TimeZone.current.identifier
         )
         try await users.createProfile(profile)
         return profile
@@ -124,11 +155,11 @@ final class SessionStore {
         try auth.signOut()
     }
 
-    /// Deletes the profile and the identity. Remaining user-owned documents and Storage
-    /// objects are removed by the `onUserDeleted` Cloud Function.
+    /// Deletes the identity. With Firebase, the `onUserDeleted` Cloud Function then removes the
+    /// profile, all user-owned documents, evidence photos and research records.
     func deleteAccount() async throws {
         guard let uid = profile?.id else { return }
-        try await users.deleteProfile(uid: uid)
+        try await users.prepareForAccountDeletion(uid: uid)
         try await auth.deleteCurrentUser()
     }
 
@@ -138,13 +169,13 @@ final class SessionStore {
     }
 }
 
-/// Assigns the between-subjects experimental condition.
+/// Provisional experimental condition written with a new profile.
 ///
-/// Phase 1 assigns uniformly at random on the client. Phase 10 moves assignment to a Cloud
-/// Function (balanced block randomization), after which this is only a fallback. Security
-/// rules already make the condition immutable once written.
+/// With Firebase, `onUserProfileCreated` immediately replaces it with a server-side permuted-block
+/// assignment (recorded in `conditionAssignedBy`) before onboarding finishes; the session observes
+/// the profile and picks that up. In demo mode this random value is final.
 enum ConditionAssignment {
-    static func assign() -> TrackingCondition {
+    static func provisional() -> TrackingCondition {
         Bool.random() ? .manual : .aiAssisted
     }
 }

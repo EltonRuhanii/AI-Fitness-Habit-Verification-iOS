@@ -167,6 +167,27 @@ A challenge bundles a duration (7–365 days), its habits and a rule set. Partic
 - **Scope:** while a challenge is active, its rules govern skipping, counting and the streak, and only its habits and days count toward the streak.
 - **Lifecycle:** there is one active or upcoming challenge at a time. It is marked `completed` after its last day. Abandoning keeps all history and stops its habits from that day.
 
+### Research data
+
+The app is the data-collection instrument for comparing **manual** self-report with **AI-assisted** verification.
+
+- **Condition assignment.** A new profile gets a provisional value, which the `onUserProfileCreated` function immediately replaces using **permuted blocks of 4** (two of each condition, shuffled; state in `research/assignment`). Group sizes therefore never differ by more than 2. `conditionAssignedBy` / `conditionAssignedAt` record this, and clients can't change them (security rules). The condition is also copied onto every completion.
+- **Daily records.** `refreshDailyRecords` (daily at 04:00 UTC) resolves each *consenting* participant's last 120 days in their own time zone. It uses `HistoryResolver`, the same definition of a day the app uses for streaks, ported to TypeScript. Both implementations run the shared vectors in `Tests/DisciplineCoreTests/Fixtures/history-resolution-cases.json`. The job writes `dailyRecords/{participantId}_{day}`, rewriting the last 14 days (which may still change, e.g. pending verification) and backfilling any missing ones. Records contain counts only; field definitions are in `DailyRecord.swift`.
+- **Researcher dashboard** (Profile → Research). Available to accounts with the `researcher` custom claim. It compares conditions on participants, day success rate, commitment adherence, mean current/longest streak, self-reported/verified/rejected/uncertain counts, verification/rejection/uncertain rates, mean AI confidence, and accountability completion. In demo mode the same screen previews your own local data.
+- **CSV export** (`exportResearchCsv`, researcher-only):
+  - `daily-records.csv`: one row per participant-day.
+  - `events.csv`: one row per completion, with habit *category* (never the name), status, method, verification status and confidence, and accountability task type/target/status.
+
+  Participant IDs are pseudonymous. There are no names, emails, habit names or photos.
+- **Granting researcher access:**
+
+  ```bash
+  cd firebase/functions
+  GOOGLE_APPLICATION_CREDENTIALS=service-account.json node scripts/set-researcher-claim.js you@uni.edu
+  ```
+
+- **Consent and deletion.** Only participants who consented during onboarding get research records. Deleting an account triggers `onUserDeleted`, which removes the profile, all user documents, evidence photos and that participant's research records.
+
 ### Security model (summary)
 
 - Users can read only documents whose `userId` is their own uid.
@@ -221,6 +242,6 @@ docker run --rm -v "$PWD:/repo" -w /repo swift:6.1 swift test --package-path Pac
 ## Known limitations
 
 - **On-device exercise counts are client-reported.** Pose estimation runs on the participant's phone, so a modified client could forge a session. Rules restrict *who* can write, not whether the reps really happened. App Check is planned as a mitigation. The thesis should treat this as a threat-to-validity.
-- The experimental condition is currently assigned randomly on the client and then locked by rules. Phase 10 moves assignment to a Cloud Function using balanced block randomization.
+- A participant who uses the app during the first seconds after registration, before the server assignment arrives, could log an event under the provisional condition. In practice onboarding takes longer than the assignment.
 - AI photo verification can only assess what is visible in an image. It cannot establish that the participant performed the activity, and it can't reliably detect a reused or borrowed photo. `captureSource` (camera vs. library) is recorded so this can be analysed.
 - Model outputs are not perfectly deterministic. Each result stores the provider, served model, prompt/criteria version and threshold so results stay attributable. Temperature can't be fixed on current Claude models.

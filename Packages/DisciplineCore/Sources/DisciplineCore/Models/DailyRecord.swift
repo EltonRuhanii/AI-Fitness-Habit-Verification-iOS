@@ -13,9 +13,20 @@ public enum DayOutcome: String, Codable, Sendable {
 
 /// Research snapshot of one participant-day. Stored at `dailyRecords/{participantId}_{day}`.
 ///
-/// Keyed by the pseudonymous `participantId`, not the auth uid, and contains only counts,
-/// so it can be exported without further de-identification. Written server-side at day
-/// close so participants cannot edit their own research record.
+/// Keyed by the pseudonymous `participantId`, not the auth uid, and contains only counts, so it
+/// can be exported without further de-identification. Written by the server (participants
+/// can't edit their own research record) and recomputed while the day is still pending.
+///
+/// Field definitions (all for this participant-local day, within the habits in scope: the
+/// challenge's habits during a challenge, otherwise all habits):
+/// - `requiredHabits`: required commitments due this day (see `DayResolver`).
+/// - `completedHabits`: of those, how many were resolved.
+/// - `selfReportedHabits` / `verifiedHabits` / `rejectedHabits` / `uncertainHabits`: completion
+///   events by status, including habits not due that day.
+/// - `skippedHabits`: skips (occurrences replaced by an accountability task).
+/// - `accountabilityTasks*`: tasks for skips of this day, and how they ended.
+/// - `verificationCount` / `verificationConfidenceSum`: decided AI verifications of this day's
+///   evidence, for computing mean confidence without exposing individual results.
 public struct DailyRecord: Codable, Identifiable, Hashable, Sendable {
     public var id: String { "\(participantId)_\(day)" }
     public var participantId: String
@@ -32,6 +43,8 @@ public struct DailyRecord: Codable, Identifiable, Hashable, Sendable {
     public var accountabilityTasks: Int
     public var accountabilityTasksCompleted: Int
     public var accountabilityTasksFailed: Int
+    public var verificationCount: Int
+    public var verificationConfidenceSum: Double
     public var outcome: DayOutcome
     public var streakBefore: Int
     public var streakAfter: Int
@@ -55,6 +68,8 @@ public struct DailyRecord: Codable, Identifiable, Hashable, Sendable {
         accountabilityTasks: Int,
         accountabilityTasksCompleted: Int,
         accountabilityTasksFailed: Int,
+        verificationCount: Int = 0,
+        verificationConfidenceSum: Double = 0,
         outcome: DayOutcome,
         streakBefore: Int,
         streakAfter: Int,
@@ -74,6 +89,8 @@ public struct DailyRecord: Codable, Identifiable, Hashable, Sendable {
         self.accountabilityTasks = accountabilityTasks
         self.accountabilityTasksCompleted = accountabilityTasksCompleted
         self.accountabilityTasksFailed = accountabilityTasksFailed
+        self.verificationCount = verificationCount
+        self.verificationConfidenceSum = verificationConfidenceSum
         self.outcome = outcome
         self.streakBefore = streakBefore
         self.streakAfter = streakAfter

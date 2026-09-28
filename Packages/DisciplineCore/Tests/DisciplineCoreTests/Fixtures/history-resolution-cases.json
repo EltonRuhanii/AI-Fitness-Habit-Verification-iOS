@@ -1,0 +1,107 @@
+{
+  "_comment": "Shared vectors for HistoryResolver + StreakCalculator. Run by the Swift tests (DisciplineCore) and the TypeScript tests (firebase/functions/src/research) so app streaks and server research records use the same definition of a day. Dates are calendar days (weeks start Monday); 2026-09-21 is a Monday.",
+  "cases": [
+    {
+      "name": "daily habit: done, missed, today pending",
+      "today": "2026-09-26", "from": "2026-06-01", "now": "2026-09-26T12:00:00Z",
+      "habits": [{ "id": "read", "frequency": "daily", "unit": "sessions", "targetCount": 1, "startDate": "2026-09-21" }],
+      "completions": [
+        { "habitId": "read", "day": "2026-09-21", "status": "selfReported" },
+        { "habitId": "read", "day": "2026-09-22", "status": "selfReported" },
+        { "habitId": "read", "day": "2026-09-23", "status": "selfReported" },
+        { "habitId": "read", "day": "2026-09-25", "status": "selfReported" }
+      ],
+      "expected": { "outcomes": ["successful", "successful", "successful", "failed", "successful", "pending"], "current": 1, "longest": 3 }
+    },
+    {
+      "name": "weekly sessions: feasibility rule",
+      "today": "2026-09-28", "from": "2026-06-01", "now": "2026-09-28T12:00:00Z",
+      "habits": [{ "id": "gym", "frequency": "weekly", "unit": "sessions", "targetCount": 4, "startDate": "2026-09-21" }],
+      "completions": [
+        { "habitId": "gym", "day": "2026-09-21", "status": "verified" },
+        { "habitId": "gym", "day": "2026-09-22", "status": "verified" }
+      ],
+      "expected": { "outcomes": ["successful", "successful", "successful", "successful", "successful", "failed", "failed", "successful"], "current": 1, "longest": 5 }
+    },
+    {
+      "name": "weekly amount due on the last day",
+      "today": "2026-09-28", "from": "2026-06-01", "now": "2026-09-28T12:00:00Z",
+      "habits": [{ "id": "read", "frequency": "weekly", "unit": "pages", "targetCount": 100, "startDate": "2026-09-21" }],
+      "completions": [
+        { "habitId": "read", "day": "2026-09-23", "status": "selfReported", "quantity": 60 },
+        { "habitId": "read", "day": "2026-09-27", "status": "selfReported", "quantity": 40 }
+      ],
+      "expected": { "outcomes": ["successful", "successful", "successful", "successful", "successful", "successful", "successful", "successful"], "current": 8, "longest": 8 }
+    },
+    {
+      "name": "verification states under default rules",
+      "today": "2026-09-28", "from": "2026-06-01", "now": "2026-09-28T12:00:00Z",
+      "habits": [{ "id": "gym", "frequency": "daily", "unit": "sessions", "targetCount": 1, "startDate": "2026-09-25" }],
+      "completions": [
+        { "habitId": "gym", "day": "2026-09-25", "status": "verified" },
+        { "habitId": "gym", "day": "2026-09-26", "status": "uncertain" },
+        { "habitId": "gym", "day": "2026-09-27", "status": "pendingVerification" }
+      ],
+      "expected": { "outcomes": ["successful", "successful", "pending", "pending"], "current": 2, "longest": 2 }
+    },
+    {
+      "name": "challenge requiring resubmission for uncertain",
+      "today": "2026-09-28", "from": "2026-06-01", "now": "2026-09-28T12:00:00Z",
+      "habits": [{ "id": "gym", "challengeId": "c1", "frequency": "daily", "unit": "sessions", "targetCount": 1, "startDate": "2026-09-25" }],
+      "challenges": [{ "id": "c1", "startDate": "2026-09-25", "durationDays": 30, "rules": { "uncertainPolicy": "requiresResubmission" } }],
+      "completions": [
+        { "habitId": "gym", "day": "2026-09-25", "status": "verified" },
+        { "habitId": "gym", "day": "2026-09-26", "status": "uncertain" },
+        { "habitId": "gym", "day": "2026-09-27", "status": "pendingVerification" }
+      ],
+      "expected": { "outcomes": ["successful", "failed", "pending", "pending"], "current": 0, "longest": 1 }
+    },
+    {
+      "name": "skip: expired task fails the day, resolved skip counts",
+      "today": "2026-09-28", "from": "2026-06-01", "now": "2026-09-28T12:00:00Z",
+      "habits": [{ "id": "gym", "frequency": "daily", "unit": "sessions", "targetCount": 1, "startDate": "2026-09-25" }],
+      "completions": [
+        { "habitId": "gym", "day": "2026-09-25", "status": "accountabilityRequired", "accountabilityTaskId": "t1" },
+        { "habitId": "gym", "day": "2026-09-26", "status": "resolved" },
+        { "habitId": "gym", "day": "2026-09-27", "status": "selfReported" }
+      ],
+      "tasks": [{ "id": "t1", "status": "pending", "deadline": "2026-09-26T09:00:00Z" }],
+      "expected": { "outcomes": ["failed", "successful", "successful", "pending"], "current": 2, "longest": 2 }
+    },
+    {
+      "name": "challenge that pauses instead of breaking",
+      "today": "2026-09-25", "from": "2026-06-01", "now": "2026-09-25T12:00:00Z",
+      "habits": [{ "id": "read", "challengeId": "c2", "frequency": "daily", "unit": "sessions", "targetCount": 1, "startDate": "2026-09-21" }],
+      "challenges": [{ "id": "c2", "startDate": "2026-09-21", "durationDays": 30, "rules": { "missedDayBehavior": "pauseStreak" } }],
+      "completions": [
+        { "habitId": "read", "day": "2026-09-21", "status": "selfReported" },
+        { "habitId": "read", "day": "2026-09-22", "status": "selfReported" },
+        { "habitId": "read", "day": "2026-09-24", "status": "selfReported" }
+      ],
+      "expected": { "outcomes": ["successful", "successful", "failed", "successful", "pending"], "current": 3, "longest": 3 }
+    },
+    {
+      "name": "challenge scope: only challenge habits count inside it",
+      "today": "2026-09-24", "from": "2026-06-01", "now": "2026-09-24T12:00:00Z",
+      "habits": [
+        { "id": "a", "challengeId": "c3", "frequency": "daily", "unit": "sessions", "targetCount": 1, "startDate": "2026-09-21" },
+        { "id": "b", "frequency": "daily", "unit": "sessions", "targetCount": 1, "startDate": "2026-09-21" }
+      ],
+      "challenges": [{ "id": "c3", "startDate": "2026-09-23", "durationDays": 7, "rules": {} }],
+      "completions": [
+        { "habitId": "a", "day": "2026-09-21", "status": "selfReported" },
+        { "habitId": "a", "day": "2026-09-22", "status": "selfReported" },
+        { "habitId": "a", "day": "2026-09-23", "status": "selfReported" },
+        { "habitId": "a", "day": "2026-09-24", "status": "selfReported" }
+      ],
+      "expected": { "outcomes": ["failed", "failed", "successful", "successful"], "current": 2, "longest": 2 }
+    },
+    {
+      "name": "weekly habit starting mid-week",
+      "today": "2026-09-28", "from": "2026-06-01", "now": "2026-09-28T12:00:00Z",
+      "habits": [{ "id": "gym", "frequency": "weekly", "unit": "sessions", "targetCount": 4, "startDate": "2026-09-26" }],
+      "completions": [],
+      "expected": { "outcomes": ["failed", "failed", "successful"], "current": 1, "longest": 1 }
+    }
+  ]
+}

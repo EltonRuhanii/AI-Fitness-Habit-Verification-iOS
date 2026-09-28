@@ -36,9 +36,11 @@ service cloud.firestore {
         && idMatches(uid)
         && request.resource.data.participantId is string
         && request.resource.data.participantId.matches('^P-[A-Z2-9]{10}$')
-        && request.resource.data.trackingCondition in ['manual', 'aiAssisted'];
+        && request.resource.data.trackingCondition in ['manual', 'aiAssisted']
+        && !('conditionAssignedBy' in request.resource.data);
+      // The condition and its assignment metadata are set by the server (onUserProfileCreated).
       allow update: if isSelf(uid)
-        && unchanged(['id', 'participantId', 'trackingCondition']);
+        && unchanged(['id', 'participantId', 'trackingCondition', 'conditionAssignedBy', 'conditionAssignedAt']);
       allow delete: if isSelf(uid);
     }
 

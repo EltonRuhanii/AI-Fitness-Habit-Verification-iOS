@@ -56,6 +56,19 @@ test('profile rejects invalid participant id or condition', async () => {
   await assertFails(setDoc(doc(alice(), 'users/alice'), { ...profile('alice'), trackingCondition: 'whatever' }));
 });
 
+test('server condition assignment cannot be faked or changed by the client', async () => {
+  await assertFails(setDoc(doc(alice(), 'users/alice'), { ...profile('alice'), conditionAssignedBy: 'server-permuted-block-4' }));
+  await seed('users/alice', { ...profile('alice'), conditionAssignedBy: 'server-permuted-block-4' });
+  await assertFails(updateDoc(doc(alice(), 'users/alice'), { conditionAssignedBy: 'client' }));
+  await assertSucceeds(updateDoc(doc(alice(), 'users/alice'), { timeZone: 'Europe/Berlin' }));
+});
+
+test('research assignment state is not accessible to clients', async () => {
+  await seed('research/assignment', { block: ['manual'] });
+  await assertFails(getDoc(doc(alice(), 'research/assignment')));
+  await assertFails(setDoc(doc(alice(), 'research/assignment'), { block: [] }));
+});
+
 test('tracking condition and participant id are immutable', async () => {
   await seed('users/alice', profile('alice', 'manual'));
   await assertFails(updateDoc(doc(alice(), 'users/alice'), { trackingCondition: 'aiAssisted' }));

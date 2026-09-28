@@ -23,4 +23,6 @@ protocol AuthenticationService: AnyObject {
     func signOut() throws
     /// Deletes the identity. Callers delete app data first (see `SessionStore.deleteAccount`).
     func deleteCurrentUser() async throws
+    /// Whether the signed-in account has the `researcher` custom claim (set with the Admin SDK).
+    func isResearcher() async -> Bool
 }
