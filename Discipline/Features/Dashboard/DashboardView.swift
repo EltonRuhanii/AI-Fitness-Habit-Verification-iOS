@@ -18,7 +18,7 @@ struct DashboardView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                     header
-                    SyncStatusBanner(monitor: store.sync)
+                    SyncStatusBanner(monitor: store.sync, connectivity: container.connectivity)
                     challengeSection
                     content
                 }
@@ -396,9 +396,24 @@ private struct WeeklyGoalRow: View {
 
 struct SyncStatusBanner: View {
     let monitor: SyncMonitor
+    let connectivity: ConnectivityMonitor
 
     var body: some View {
-        if let error = monitor.lastError {
+        if !connectivity.isOnline {
+            HStack(spacing: Theme.Spacing.xs) {
+                Image(systemName: "wifi.slash")
+                Text(monitor.isSyncing
+                     ? "Offline. \(monitor.pendingWrites) change\(monitor.pendingWrites == 1 ? "" : "s") saved on this device and will sync when you're back online."
+                     : "Offline. Changes are saved on this device and will sync when you're back online.")
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .font(Theme.Typography.caption)
+            .foregroundStyle(Theme.Palette.warning)
+            .padding(Theme.Spacing.sm)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.Palette.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: Theme.Radius.sm, style: .continuous))
+            .accessibilityElement(children: .combine)
+        } else if let error = monitor.lastError {
             HStack(alignment: .top) {
                 InlineMessage(text: "Some changes couldn't be synced: \(error.localizedDescription)")
                 Button {

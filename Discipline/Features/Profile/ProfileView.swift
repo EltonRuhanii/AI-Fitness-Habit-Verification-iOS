@@ -6,11 +6,6 @@ struct ProfileView: View {
     @Environment(HabitsStore.self) private var store
     @Environment(AppContainer.self) private var container
     @State private var isResearcher = false
-    @AppStorage("appearance") private var appearance: AppearancePreference = .dark
-
-    @State private var confirmsDeletion = false
-    @State private var isDeleting = false
-    @State private var errorMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -18,6 +13,16 @@ struct ProfileView: View {
                 if let profile = session.profile {
                     Section {
                         ProfileHeader(profile: profile)
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+
+                    Section {
+                        statisticsGrid
+                    } header: {
+                        Text("Statistics")
+                    } footer: {
+                        Text("Over the last \(HabitsStore.historyDays) days.")
                     }
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets())
@@ -56,47 +61,53 @@ struct ProfileView: View {
                     }
                 }
 
-                Section("Appearance") {
-                    Picker("Theme", selection: $appearance) {
-                        ForEach(AppearancePreference.allCases) { option in
-                            Text(option.title).tag(option)
-                        }
-                    }
-                }
-
-                if let errorMessage {
-                    Section {
-                        InlineMessage(text: errorMessage)
-                    }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
-                }
-
                 Section {
-                    Button("Sign out") { signOut() }
-                        .accessibilityIdentifier("profile.signOut")
-                    Button("Delete account", role: .destructive) { confirmsDeletion = true }
-                        .disabled(isDeleting)
-                } footer: {
-                    Text("Deleting your account permanently removes your profile, habits, evidence photos and research records.")
+                    NavigationLink {
+                        SettingsView()
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                    .accessibilityIdentifier("profile.settings")
                 }
             }
             .scrollContentBackground(.hidden)
             .screenBackground()
             .navigationTitle("Profile")
             .task { isResearcher = await container.auth.isResearcher() }
-            .confirmationDialog(
-                "Delete your account?",
-                isPresented: $confirmsDeletion,
-                titleVisibility: .visible
-            ) {
-                Button("Delete permanently", role: .destructive) {
-                    Task { await deleteAccount() }
-                }
-            } message: {
-                Text("This can't be undone.")
+        }
+    }
+
+    private var statisticsGrid: some View {
+        let stats = store.statistics
+        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
+            stat("Current streak", "\(store.streak.current)", unit: "days")
+            stat("Longest streak", "\(store.streak.longest)", unit: "days")
+            stat("Completed", "\(stats.totalCompleted)", unit: "habits")
+            stat("Verified", "\(stats.verified)", unit: "by AI")
+            stat("Accountability done", "\(stats.accountabilityCompleted)", unit: "tasks")
+            stat("Accountability missed", "\(stats.accountabilityFailed)", unit: "tasks")
+        }
+    }
+
+    private func stat(_ title: String, _ value: String, unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title.uppercased())
+                .font(Theme.Typography.eyebrow)
+                .tracking(1)
+                .foregroundStyle(Theme.Palette.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(value)
+                    .font(Theme.Typography.title2.monospacedDigit())
+                    .foregroundStyle(Theme.Palette.textPrimary)
+                Text(unit)
+                    .font(Theme.Typography.caption)
+                    .foregroundStyle(Theme.Palette.textTertiary)
             }
         }
+        .card(padding: Theme.Spacing.sm)
+        .accessibilityElement(children: .combine)
     }
 
     private var researchService: ResearchService {
@@ -105,24 +116,6 @@ struct ProfileView: View {
         }
         let participantId = session.profile?.participantId ?? "P-DEMO"
         return LocalResearchService { [store] in store.localResearchRecords(participantId: participantId) }
-    }
-
-    private func signOut() {
-        do {
-            try session.signOut()
-        } catch {
-            errorMessage = AppError.from(error).localizedDescription
-        }
-    }
-
-    private func deleteAccount() async {
-        isDeleting = true
-        defer { isDeleting = false }
-        do {
-            try await session.deleteAccount()
-        } catch {
-            errorMessage = AppError.from(error).localizedDescription
-        }
     }
 }
 

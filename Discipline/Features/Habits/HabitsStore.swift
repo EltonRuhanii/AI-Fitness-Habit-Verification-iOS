@@ -37,7 +37,10 @@ final class HabitsStore {
     private let completionRepository: CompletionRepository
     private let accountabilityRepository: AccountabilityRepository
     private let challengeRepository: ChallengeRepository
+    private let notifications: NotificationScheduler
+    private let notificationPreferences: NotificationPreferencesStore
     private var listeners: [Task<Void, Never>] = []
+    private var notificationTask: Task<Void, Never>?
 
     /// The challenge currently in progress, if any. Its rules govern skipping, counting and streaks.
     var activeChallenge: Challenge? { ChallengePlanner.activeChallenge(in: challenges, today: today) }
@@ -55,6 +58,8 @@ final class HabitsStore {
         self.completionRepository = container.completions
         self.accountabilityRepository = container.accountability
         self.challengeRepository = container.challenges
+        self.notifications = container.notifications
+        self.notificationPreferences = container.notificationPreferences
         self.sync = container.sync
     }
 
@@ -205,6 +210,66 @@ final class HabitsStore {
             today: today,
             calendar: calendar
         )
+        scheduleNotifications()
+    }
+
+    // MARK: Notifications
+
+    /// Replans local notifications from the current state (debounced: data often arrives in bursts).
+    func scheduleNotifications() {
+        notificationTask?.cancel()
+        notificationTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled, let self else { return }
+            let planned = NotificationPlanner.plan(
+                now: Date(),
+                calendar: self.calendar,
+                preferences: self.notificationPreferences.preferences,
+                today: self.today,
+                commitments: self.todayCommitments,
+                openTasks: self.openAccountabilityTasks,
+                streak: self.streak,
+                streakEnabled: self.rules.streakEnabled
+            )
+            await self.notifications.reschedule(planned)
+        }
+    }
+
+    /// Notification permission is requested in context: when the first habit is created.
+    private func requestNotificationsIfFirstHabit() {
+        guard activeHabits.isEmpty else { return }
+        Task { [notifications] in
+            await notifications.requestAuthorizationIfNeeded()
+            self.scheduleNotifications()
+        }
+    }
+
+    // MARK: Statistics
+
+    struct Statistics {
+        var totalCompleted = 0
+        var verified = 0
+        var selfReported = 0
+        var accountabilityCompleted = 0
+        var accountabilityFailed = 0
+    }
+
+    /// Profile statistics over the loaded history.
+    var statistics: Statistics {
+        var stats = Statistics()
+        let policy = CountingPolicy()
+        stats.totalCompleted = completions.filter { policy.counts($0.status) }.count
+        stats.verified = completions.filter { $0.status == .verified }.count
+        stats.selfReported = completions.filter { $0.status == .selfReported }.count
+        let now = Date()
+        for task in accountabilityTasks {
+            switch AccountabilityLifecycle.effectiveStatus(of: task, now: now) {
+            case .completed: stats.accountabilityCompleted += 1
+            case .failed, .expired: stats.accountabilityFailed += 1
+            default: break
+            }
+        }
+        return stats
     }
 
     /// Research records for this participant computed on device (demo mode's research preview).
@@ -269,6 +334,7 @@ final class HabitsStore {
         var habit = habit
         habit.name = trimmed
         habit.verificationType = habit.requiresEvidence ? .photoAI : .manual
+        requestNotificationsIfFirstHabit()
         try habitRepository.save(habit)
     }
 
@@ -284,6 +350,7 @@ final class HabitsStore {
     }
 
     func addStarterHabits() throws {
+        requestNotificationsIfFirstHabit()
         let existing = Set(activeHabits.map { $0.name.lowercased() })
         for habit in HabitTemplates.disciplineStarter(userId: userId, startDate: today) where !existing.contains(habit.name.lowercased()) {
             try habitRepository.save(habit)

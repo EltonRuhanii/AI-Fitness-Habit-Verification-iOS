@@ -188,6 +188,29 @@ The app is the data-collection instrument for comparing **manual** self-report w
 
 - **Consent and deletion.** Only participants who consented during onboarding get research records. Deleting an account triggers `onUserDeleted`, which removes the profile, all user documents, evidence photos and that participant's research records.
 
+### Notifications
+
+Local notifications are planned by the pure `NotificationPlanner` (DisciplineCore, unit-tested) and fully rescheduled whenever data changes:
+
+| Notification | When |
+|---|---|
+| Evening reminder | At the chosen time (default 18:00), only if something is still open today. Names the commitments or a weekly shortfall, e.g. "You have one remaining gym session this week." |
+| Accountability deadline | 2 h before a task expires. Moved before quiet hours if needed. |
+| Streak warning | 21:00, only for streaks ≥ 3 days with today still open |
+| Weekly summary | Sunday 19:00 |
+
+- Limits: at most 3 per day, and nothing in quiet hours (22:00–08:00).
+- Each type can be toggled in Settings.
+- Permission is requested when the first habit is created, not at launch.
+- Verification results are shown in-app when the check finishes. Push notifications for server events would need Firebase Cloud Messaging and aren't used.
+
+### Offline behaviour
+
+- Firestore's persistent cache serves habits, completions and progress offline.
+- Completions, skips, habit edits and exercise sessions are written locally first and synced later. The dashboard shows an offline banner with the number of unsynced changes, and sync failures are shown too.
+- Photo evidence needs a connection (upload plus server-side verification). The evidence sheet says so and disables submission while offline.
+- Duplicate completions from retries are prevented by deterministic document IDs.
+
 ### Security model (summary)
 
 - Users can read only documents whose `userId` is their own uid.

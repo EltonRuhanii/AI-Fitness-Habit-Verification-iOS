@@ -17,6 +17,9 @@ final class AppContainer {
     let evidence: EvidenceService
     let verification: AIVerificationService
     let sync: SyncMonitor
+    let notifications = NotificationScheduler()
+    let notificationPreferences = NotificationPreferencesStore()
+    let connectivity = ConnectivityMonitor()
 
     init(
         configuration: AppConfiguration,

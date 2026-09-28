@@ -41,6 +41,15 @@ final class DemoEvidenceBackend: EvidenceService, AIVerificationService {
         try completions.save(completion)
     }
 
+    func deleteAllEvidence(userId: String) async throws -> Int {
+        let items = evidence.snapshot().filter { $0.userId == userId }
+        for item in items {
+            try? FileManager.default.removeItem(at: imageURL(for: item.id))
+            try evidence.remove(id: item.id)
+        }
+        return items.count
+    }
+
     func fetchVerification(id: String) async throws -> VerificationResult? {
         verifications.snapshot().first { $0.id == id }
     }

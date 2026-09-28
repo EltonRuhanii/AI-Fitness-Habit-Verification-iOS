@@ -9,6 +9,9 @@ protocol EvidenceService: AnyObject {
     /// occupied by evidence the server can't see.
     func submit(jpeg: Data, evidence: Evidence, completion: HabitCompletion) async throws
     func fetchVerification(id: String) async throws -> VerificationResult?
+    /// Deletes all of the participant's evidence photos and evidence records. Completion history
+    /// and verification outcomes are kept (they contain no image). Returns the number deleted.
+    func deleteAllEvidence(userId: String) async throws -> Int
 }
 
 /// Requests an automated assessment of submitted evidence.

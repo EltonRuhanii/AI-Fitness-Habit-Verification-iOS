@@ -25,6 +25,14 @@ final class DemoCollection<Value: Codable & Identifiable> where Value.ID == Stri
         }
     }
 
+    func remove(id: String) throws {
+        values[id] = nil
+        try store.save(values)
+        for observer in observers.values {
+            observer.continuation.yield(values.values.filter(observer.filter))
+        }
+    }
+
     func snapshot() -> [Value] {
         Array(values.values)
     }

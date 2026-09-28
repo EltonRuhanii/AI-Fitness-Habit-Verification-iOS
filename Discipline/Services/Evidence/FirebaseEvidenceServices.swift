@@ -41,6 +41,25 @@ final class FirebaseEvidenceService: EvidenceService {
             throw AppError.from(error)
         }
     }
+
+    func deleteAllEvidence(userId: String) async throws -> Int {
+        do {
+            let snapshot = try await db.collection(Collections.evidence).whereField("userId", isEqualTo: userId).getDocuments()
+            for document in snapshot.documents {
+                if let path = document.get("storagePath") as? String {
+                    do {
+                        try await storage.reference(withPath: path).delete()
+                    } catch let error as NSError where error.domain == "FIRStorageErrorDomain" && error.code == -13010 {
+                        // Already gone (object not found): continue with the record.
+                    }
+                }
+                try await document.reference.delete()
+            }
+            return snapshot.documents.count
+        } catch {
+            throw AppError.from(error)
+        }
+    }
 }
 
 @MainActor

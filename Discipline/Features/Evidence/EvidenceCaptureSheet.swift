@@ -5,6 +5,7 @@ import DisciplineCore
 struct EvidenceCaptureSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(AppContainer.self) private var container
     @State private var model: EvidenceFlowModel
 
     @State private var showsCamera = false
@@ -60,6 +61,9 @@ struct EvidenceCaptureSheet: View {
     private var content: some View {
         switch model.phase {
         case .choosing:
+            if !container.connectivity.isOnline {
+                InlineMessage(text: "You're offline. Photo evidence needs a connection to upload and be verified.", style: .info)
+            }
             intro
             criteriaCard
             if let cameraMessage {
@@ -180,6 +184,7 @@ struct EvidenceCaptureSheet: View {
             case .preview:
                 Button("Submit for verification") { Task { await model.submit() } }
                     .buttonStyle(.primary)
+                    .disabled(!container.connectivity.isOnline)
                     .accessibilityIdentifier("evidence.submit")
                 Button("Retake") { model.retake() }
                     .buttonStyle(.secondary)
