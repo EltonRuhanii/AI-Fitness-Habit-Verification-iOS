@@ -7,6 +7,7 @@ public struct ExerciseSessionRecorder: Sendable {
     /// - Parameter alreadyCompleted: valid reps from earlier sessions for the same task; this
     ///   session's target is what remains, so several short sessions can complete a task.
     public init(task: AccountabilityTask, exercise: ExerciseKind, engineVersion: String,
+                method: ExerciseVerificationMethod = .visionBodyPose2D,
                 alreadyCompleted: Int = 0, startedAt: Date = Date(), id: String = UUID().uuidString) {
         session = ExerciseSession(
             id: id,
@@ -15,6 +16,7 @@ public struct ExerciseSessionRecorder: Sendable {
             exercise: exercise,
             startedAt: startedAt,
             targetReps: max(1, task.target - alreadyCompleted),
+            verificationMethod: method,
             engineVersion: engineVersion
         )
     }
@@ -35,8 +37,8 @@ public struct ExerciseSessionRecorder: Sendable {
             timestamp: date,
             isValid: outcome.isValid,
             fault: outcome.fault,
-            minimumAngle: (outcome.minimumAngle * 10).rounded() / 10,
-            maximumAngle: (outcome.maximumAngle * 10).rounded() / 10
+            minimumValue: (outcome.minimumValue * 100).rounded() / 100,
+            maximumValue: (outcome.maximumValue * 100).rounded() / 100
         ))
     }
 

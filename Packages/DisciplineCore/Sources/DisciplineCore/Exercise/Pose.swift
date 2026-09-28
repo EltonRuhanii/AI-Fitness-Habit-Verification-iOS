@@ -34,7 +34,25 @@ public struct Point2D: Hashable, Sendable {
     }
 }
 
-/// One analysed camera frame. An empty `landmarks` dictionary means no person was detected.
+/// A detected face in normalized image coordinates (origin bottom-left).
+public struct FaceBox: Hashable, Sendable {
+    public let x: Double
+    public let y: Double
+    public let width: Double
+    public let height: Double
+    public let confidence: Double
+
+    public init(x: Double, y: Double, width: Double, height: Double, confidence: Double) {
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.confidence = confidence
+    }
+}
+
+/// One analysed camera frame. An empty `landmarks` dictionary means no body was detected;
+/// `face` is only filled by face-based analysis.
 public struct PoseFrame: Sendable {
     /// Seconds on a monotonic clock (e.g. the sample buffer's presentation time).
     public let timestamp: TimeInterval
@@ -42,11 +60,14 @@ public struct PoseFrame: Sendable {
     /// Width / height of the (oriented) image. Normalized coordinates are scaled by this before
     /// measuring angles; otherwise angles in a portrait frame would be distorted.
     public let aspectRatio: Double
+    /// Largest detected face, when face analysis is used.
+    public let face: FaceBox?
 
-    public init(timestamp: TimeInterval, landmarks: [Joint: Landmark], aspectRatio: Double) {
+    public init(timestamp: TimeInterval, landmarks: [Joint: Landmark], aspectRatio: Double, face: FaceBox? = nil) {
         self.timestamp = timestamp
         self.landmarks = landmarks
         self.aspectRatio = aspectRatio
+        self.face = face
     }
 
     /// The landmark in aspect-corrected space (x scaled by the aspect ratio, y unchanged), if
@@ -93,6 +114,10 @@ public enum CalibrationIssue: String, Codable, CaseIterable, Sendable {
     case notInPosition
     /// Landmarks detected with low confidence: usually poor lighting or occlusion.
     case poorVisibility
+    /// Face-based counting: no face detected.
+    case faceNotVisible
+    /// Face-based counting: the top position wasn't held steadily enough to measure.
+    case notStill
 }
 
 public enum FormFeedback: String, Codable, Sendable {
@@ -107,6 +132,7 @@ public enum FormFeedback: String, Codable, Sendable {
     case fullBodyNotVisible
     case getIntoPosition
     case poorVisibility
+    case faceNotVisible
 }
 
 public enum MovementPhase: String, Codable, Sendable {
@@ -120,14 +146,14 @@ public enum MovementPhase: String, Codable, Sendable {
 public struct RepetitionOutcome: Equatable, Sendable {
     public let isValid: Bool
     public let fault: RepetitionFault?
-    public let minimumAngle: Double
-    public let maximumAngle: Double
+    public let minimumValue: Double
+    public let maximumValue: Double
 
-    public init(isValid: Bool, fault: RepetitionFault?, minimumAngle: Double, maximumAngle: Double) {
+    public init(isValid: Bool, fault: RepetitionFault?, minimumValue: Double, maximumValue: Double) {
         self.isValid = isValid
         self.fault = fault
-        self.minimumAngle = minimumAngle
-        self.maximumAngle = maximumAngle
+        self.minimumValue = minimumValue
+        self.maximumValue = maximumValue
     }
 }
 
@@ -138,7 +164,7 @@ public struct ExerciseUpdate: Equatable, Sendable {
     /// Set only on the frame where a repetition ends.
     public let repetition: RepetitionOutcome?
     /// The engine's primary joint angle this frame (smoothed), for display/debugging.
-    public let primaryAngle: Double?
+    public let primaryValue: Double?
 
     public var isCalibrated: Bool { phase != .calibrating }
 }
@@ -150,6 +176,7 @@ public struct ExerciseUpdate: Equatable, Sendable {
 /// means adding another conforming type.
 public protocol ExerciseVerificationEngine: Sendable {
     var exercise: ExerciseKind { get }
+    var method: ExerciseVerificationMethod { get }
     /// Identifies the thresholds/state machine; stored on every session for reproducibility.
     var version: String { get }
     mutating func reset()

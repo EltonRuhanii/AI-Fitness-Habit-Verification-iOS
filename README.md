@@ -112,7 +112,16 @@ Skipping a session habit shows its pre-agreed consequence (e.g. 50 push-ups) and
 
 ### Exercise verification (computer vision)
 
-Accountability push-ups are counted on the device. No video is recorded or uploaded.
+Accountability push-ups are counted on the device. No video is recorded or uploaded. There are two counting modes, and each session records which one it used (`verificationMethod`, `engineVersion`), so they can be compared in the analysis.
+
+| Mode | Setup | Checks | Engine |
+|---|---|---|---|
+| **Face** (default) | Phone flat on the floor under the face, screen up | Depth and lockout, via the face growing to ≥ 1.6× and returning to ≤ 1.2× of its size at the top | `FacePushUpEngine` (`pushup-face-v1`, `VNDetectFaceRectanglesRequest`) |
+| **Side view** (strict) | Phone upright ~2 m to the side | Depth, lockout and body straightness from joint angles | `PushUpEngine` (`pushup-v1`, `VNDetectHumanBodyPoseRequest`) |
+
+Face mode was added after real-world testing showed the side view was hard to set up. It trades the body-alignment check for much easier use.
+
+Side-view pipeline:
 
 ```text
 Front camera (AVFoundation, 720p) → Apple Vision VNDetectHumanBodyPoseRequest (~15 fps)

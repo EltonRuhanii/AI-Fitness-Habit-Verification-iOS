@@ -44,8 +44,14 @@ struct ExerciseCameraView: View {
         ZStack {
             CameraPreview(session: model.camera.session)
                 .ignoresSafeArea()
-            SkeletonOverlay(landmarks: model.landmarks, imageAspect: model.imageAspect)
-                .ignoresSafeArea()
+            Group {
+                if model.mode == .face {
+                    FaceOverlay(face: model.face, imageAspect: model.imageAspect)
+                } else {
+                    SkeletonOverlay(landmarks: model.landmarks, imageAspect: model.imageAspect)
+                }
+            }
+            .ignoresSafeArea()
 
             VStack {
                 topBar
@@ -91,19 +97,24 @@ struct ExerciseCameraView: View {
     }
 
     private var setupPanel: some View {
-        let issues = Set(model.update?.calibrationIssues ?? [.bodyNotVisible])
-        return VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text("Get set up")
                 .font(Theme.Typography.title2)
                 .foregroundStyle(.white)
-            Text("Place your phone upright on the floor, about 2 m to your side, so your whole body is visible from the side.")
-                .font(Theme.Typography.callout)
-                .foregroundStyle(.white.opacity(0.8))
-                .fixedSize(horizontal: false, vertical: true)
-            checklistRow("Full body visible", ok: !issues.contains(.bodyNotVisible))
-            checklistRow("Right distance", ok: !issues.contains(.moveFarther) && !issues.contains(.moveCloser) && !issues.contains(.bodyNotVisible))
-            checklistRow("In push-up position", ok: !issues.contains(.notInPosition) && !issues.contains(.bodyNotVisible))
-            checklistRow("Clear view and lighting", ok: !issues.contains(.poorVisibility) && !issues.contains(.bodyNotVisible))
+            if model.canChangeMode {
+                Picker("Counting mode", selection: Binding(get: { model.mode }, set: { model.setMode($0) })) {
+                    ForEach(ExerciseSessionModel.CountingMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("exercise.mode")
+            }
+            if model.mode == .face {
+                faceSetup
+            } else {
+                sideViewSetup
+            }
             if let feedback = model.update?.feedback {
                 feedbackPill(feedback)
             }
@@ -112,6 +123,31 @@ struct ExerciseCameraView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: Theme.Radius.lg, style: .continuous))
         .environment(\.colorScheme, .dark)
+    }
+
+    @ViewBuilder
+    private var faceSetup: some View {
+        let issues = Set(model.update?.calibrationIssues ?? [.faceNotVisible])
+        Text("Lay your phone flat on the floor under your face, screen up. Get into the top position with straight arms, look at the screen and hold still for a second.")
+            .font(Theme.Typography.callout)
+            .foregroundStyle(.white.opacity(0.8))
+            .fixedSize(horizontal: false, vertical: true)
+        checklistRow("Face visible", ok: !issues.contains(.faceNotVisible))
+        checklistRow("Right distance", ok: !issues.contains(.faceNotVisible) && !issues.contains(.moveCloser) && !issues.contains(.moveFarther))
+        checklistRow("Holding still at the top", ok: model.update != nil && issues.isEmpty)
+    }
+
+    @ViewBuilder
+    private var sideViewSetup: some View {
+        let issues = Set(model.update?.calibrationIssues ?? [.bodyNotVisible])
+        Text("Place your phone upright on the floor, about 2 m to your side, so your whole body is visible from the side. Stricter: also checks that your body stays straight.")
+            .font(Theme.Typography.callout)
+            .foregroundStyle(.white.opacity(0.8))
+            .fixedSize(horizontal: false, vertical: true)
+        checklistRow("Full body visible", ok: !issues.contains(.bodyNotVisible))
+        checklistRow("Right distance", ok: !issues.contains(.moveFarther) && !issues.contains(.moveCloser) && !issues.contains(.bodyNotVisible))
+        checklistRow("In push-up position", ok: !issues.contains(.notInPosition) && !issues.contains(.bodyNotVisible))
+        checklistRow("Clear view and lighting", ok: !issues.contains(.poorVisibility) && !issues.contains(.bodyNotVisible))
     }
 
     private func checklistRow(_ title: String, ok: Bool) -> some View {
@@ -257,7 +293,7 @@ struct ExerciseSummaryView: View {
                     .card()
                 }
 
-                Text("Counted on this device with Apple Vision body-pose detection (\(session.engineVersion)). No video was recorded or uploaded. Automated counting can make mistakes.")
+                Text("\(methodDescription) (\(session.engineVersion)). No video was recorded or uploaded. Automated counting can make mistakes.")
                     .font(Theme.Typography.caption)
                     .foregroundStyle(Theme.Palette.textTertiary)
             }
@@ -276,6 +312,15 @@ struct ExerciseSummaryView: View {
         let fault: RepetitionFault
         let count: Int
         var id: RepetitionFault { fault }
+    }
+
+    private var methodDescription: String {
+        switch session.verificationMethod {
+        case .visionBodyPose2D:
+            return "Counted on this device from your body pose (side view): depth, lockout and body alignment"
+        case .visionFaceProximity:
+            return "Counted on this device from your face's distance to the phone: depth and lockout (body alignment isn't checked in this mode)"
+        }
     }
 
     private var faultCounts: [FaultCount] {

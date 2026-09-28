@@ -15,8 +15,19 @@ public enum ExerciseKind: String, Codable, CaseIterable, Sendable {
 }
 
 public enum ExerciseVerificationMethod: String, Codable, Sendable {
-    /// Apple Vision `VNDetectHumanBodyPoseRequest`, processed on device.
+    /// Side view, Apple Vision `VNDetectHumanBodyPoseRequest`: elbow angle + body line.
     case visionBodyPose2D
+    /// Phone flat under the face, Apple Vision `VNDetectFaceRectanglesRequest`: face size
+    /// relative to the top position. Checks depth and lockout, not body straightness.
+    case visionFaceProximity
+
+    /// What `RepetitionEvent.minimumValue` / `maximumValue` measure for this method.
+    public var metric: String {
+        switch self {
+        case .visionBodyPose2D: return "elbow_angle_degrees"
+        case .visionFaceProximity: return "face_size_ratio_to_top"
+        }
+    }
 }
 
 public enum ExerciseSessionOutcome: String, Codable, Sendable {
@@ -91,17 +102,18 @@ public struct RepetitionEvent: Codable, Hashable, Sendable {
     public var timestamp: Date
     public var isValid: Bool
     public var fault: RepetitionFault?
-    /// Smallest elbow (or knee) angle reached during the repetition, in degrees.
-    public var minimumAngle: Double
-    /// Largest angle reached at the top of the repetition, in degrees.
-    public var maximumAngle: Double
+    /// Smallest value of the session's metric during the repetition
+    /// (see `ExerciseVerificationMethod.metric`, e.g. elbow angle in degrees).
+    public var minimumValue: Double
+    /// Largest value of the session's metric during the repetition.
+    public var maximumValue: Double
 
-    public init(index: Int, timestamp: Date, isValid: Bool, fault: RepetitionFault?, minimumAngle: Double, maximumAngle: Double) {
+    public init(index: Int, timestamp: Date, isValid: Bool, fault: RepetitionFault?, minimumValue: Double, maximumValue: Double) {
         self.index = index
         self.timestamp = timestamp
         self.isValid = isValid
         self.fault = fault
-        self.minimumAngle = minimumAngle
-        self.maximumAngle = maximumAngle
+        self.minimumValue = minimumValue
+        self.maximumValue = maximumValue
     }
 }

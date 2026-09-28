@@ -5,10 +5,9 @@ import DisciplineCore
 /// Vision (iOS 18 SDK) declares its own `Joint`; refer to ours unambiguously.
 private typealias BodyJoint = DisciplineCore.Joint
 
-/// Front-camera capture + on-device body-pose detection.
-///
-/// Frames are analysed with `VNDetectHumanBodyPoseRequest` on a background queue and delivered
-/// as `PoseFrame`s. Nothing is recorded or uploaded; only landmarks leave this type.
+/// Front-camera capture + on-device analysis: body pose (side-view mode) or face rectangles
+/// (face mode). Frames are analysed on a background queue and delivered as `PoseFrame`s.
+/// Nothing is recorded or uploaded; only landmarks / the face box leave this type.
 final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     enum CameraError: LocalizedError {
         case unavailable
@@ -22,6 +21,11 @@ final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, 
         }
     }
 
+    enum AnalysisMode: Sendable {
+        case bodyPose
+        case face
+    }
+
     let session = AVCaptureSession()
     /// Latest frame only: if analysis falls behind, older frames are dropped rather than queued.
     let frames: AsyncStream<PoseFrame>
@@ -29,6 +33,9 @@ final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, 
     private let continuation: AsyncStream<PoseFrame>.Continuation
     private let queue = DispatchQueue(label: "com.eltonruhani.discipline.pose", qos: .userInitiated)
     private let request = VNDetectHumanBodyPoseRequest()
+    private let faceRequest = VNDetectFaceRectanglesRequest()
+    /// Accessed only on `queue`.
+    private var mode: AnalysisMode = .face
     private var lastAnalysis: TimeInterval = 0
     /// ~15 analysed frames per second is plenty for push-up tempo and saves battery.
     private let minInterval: TimeInterval = 1.0 / 15
@@ -76,6 +83,10 @@ final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, 
         }
     }
 
+    func setMode(_ mode: AnalysisMode) {
+        queue.async { self.mode = mode }
+    }
+
     func stop() {
         queue.async { [session] in
             if session.isRunning { session.stopRunning() }
@@ -99,6 +110,12 @@ final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, 
         // Oriented (portrait) image: width = buffer height, height = buffer width.
         let aspectRatio = Double(CVPixelBufferGetHeight(pixelBuffer)) / Double(max(CVPixelBufferGetWidth(pixelBuffer), 1))
 
+        if mode == .face {
+            continuation.yield(PoseFrame(timestamp: timestamp, landmarks: [:], aspectRatio: aspectRatio,
+                                         face: detectFace(with: handler)))
+            return
+        }
+
         var landmarks: [BodyJoint: Landmark] = [:]
         do {
             try handler.perform([request])
@@ -114,5 +131,14 @@ final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, 
             // A failed analysis is reported as "no body" for this frame; the engine handles gaps.
         }
         continuation.yield(PoseFrame(timestamp: timestamp, landmarks: landmarks, aspectRatio: aspectRatio))
+    }
+
+    /// The largest detected face (the participant's, closest to the phone).
+    private func detectFace(with handler: VNImageRequestHandler) -> FaceBox? {
+        guard (try? handler.perform([faceRequest])) != nil,
+              let face = faceRequest.results?.max(by: { $0.boundingBox.height < $1.boundingBox.height })
+        else { return nil }
+        let box = face.boundingBox
+        return FaceBox(x: box.origin.x, y: box.origin.y, width: box.width, height: box.height, confidence: Double(face.confidence))
     }
 }

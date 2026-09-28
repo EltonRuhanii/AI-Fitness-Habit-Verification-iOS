@@ -15,6 +15,7 @@ extension FormFeedback {
         case .fullBodyNotVisible: return "Make sure your full body is visible"
         case .getIntoPosition: return "Get into push-up position"
         case .poorVisibility: return "Improve the lighting or clear the view"
+        case .faceNotVisible: return "Look at the screen so your face is visible"
         }
     }
 
@@ -28,6 +29,7 @@ extension FormFeedback {
         case .moveFarther, .moveCloser: return "arrow.left.and.right.circle.fill"
         case .fullBodyNotVisible, .getIntoPosition: return "figure.cooldown"
         case .poorVisibility: return "sun.max.fill"
+        case .faceNotVisible: return "face.dashed"
         }
     }
 
@@ -48,6 +50,27 @@ extension RepetitionFault {
         case .bodyNotStraight: return "Body not straight"
         case .trackingLost: return "Lost tracking"
         }
+    }
+}
+
+/// Outline of the detected face (face mode).
+struct FaceOverlay: View {
+    let face: FaceBox?
+    let imageAspect: Double
+
+    var body: some View {
+        Canvas { context, size in
+            guard let face else { return }
+            let mapping = AspectFillMapping(imageAspect: imageAspect, viewSize: size)
+            // Vision's origin is bottom-left, so the box's top edge is at y + height.
+            let topLeft = mapping.point(x: face.x, y: face.y + face.height)
+            let bottomRight = mapping.point(x: face.x + face.width, y: face.y)
+            let rect = CGRect(x: min(topLeft.x, bottomRight.x), y: min(topLeft.y, bottomRight.y),
+                              width: abs(bottomRight.x - topLeft.x), height: abs(bottomRight.y - topLeft.y))
+            context.stroke(Path(roundedRect: rect, cornerRadius: 18), with: .color(Theme.Palette.accent), lineWidth: 4)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 

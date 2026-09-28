@@ -69,7 +69,7 @@ final class PushUpEngineTests: XCTestCase {
 
     func testSyntheticPoseProducesRequestedElbowAngle() {
         var engine = PushUpEngine(configuration: { var c = PushUpConfiguration(); c.smoothing = 1; return c }())
-        XCTAssertEqual(engine.process(pose(elbow: 123)).primaryAngle ?? 0, 123, accuracy: 0.001)
+        XCTAssertEqual(engine.process(pose(elbow: 123)).primaryValue ?? 0, 123, accuracy: 0.001)
     }
 
     // MARK: Calibration
@@ -115,7 +115,7 @@ final class PushUpEngineTests: XCTestCase {
         XCTAssertEqual(reps.count, 1)
         XCTAssertEqual(reps.first?.isValid, true)
         XCTAssertNil(reps.first?.fault)
-        XCTAssertLessThanOrEqual(reps.first?.minimumAngle ?? 999, 95)
+        XCTAssertLessThanOrEqual(reps.first?.minimumValue ?? 999, 95)
     }
 
     func testTenValidRepetitions() {
@@ -211,8 +211,8 @@ final class PushUpEngineTests: XCTestCase {
                                       deadline: Date().addingTimeInterval(3600))
         var recorder = ExerciseSessionRecorder(task: task, exercise: .pushUps, engineVersion: "pushup-v1", alreadyCompleted: 7)
         XCTAssertEqual(recorder.session.targetReps, 3)
-        let valid = RepetitionOutcome(isValid: true, fault: nil, minimumAngle: 84.44, maximumAngle: 171.06)
-        let invalid = RepetitionOutcome(isValid: false, fault: .insufficientDepth, minimumAngle: 110, maximumAngle: 170)
+        let valid = RepetitionOutcome(isValid: true, fault: nil, minimumValue: 84.44, maximumValue: 171.06)
+        let invalid = RepetitionOutcome(isValid: false, fault: .insufficientDepth, minimumValue: 110, maximumValue: 170)
         recorder.record(valid)
         recorder.record(invalid)
         recorder.record(valid)
@@ -224,7 +224,7 @@ final class PushUpEngineTests: XCTestCase {
         XCTAssertEqual(session.validReps, 3)
         XCTAssertEqual(session.invalidReps, 1)
         XCTAssertEqual(session.repetitions.map(\.index), [1, 2, 3, 4])
-        XCTAssertEqual(session.repetitions.first?.minimumAngle, 84.4)
+        XCTAssertEqual(session.repetitions.first?.minimumValue, 84.44)
         XCTAssertEqual(session.engineVersion, "pushup-v1")
 
         recorder.record(valid)

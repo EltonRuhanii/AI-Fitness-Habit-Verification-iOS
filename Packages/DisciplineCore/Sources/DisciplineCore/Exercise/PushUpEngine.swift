@@ -34,7 +34,7 @@ public struct PushUpConfiguration: Equatable, Sendable {
     public init() {}
 }
 
-/// Push-up repetition counter.
+/// Side-view push-up repetition counter (strict mode: full body visible from the side).
 ///
 /// State machine (elbow angle, smoothed):
 ///
@@ -47,6 +47,7 @@ public struct PushUpConfiguration: Equatable, Sendable {
 /// returns to calibration.
 public struct PushUpEngine: ExerciseVerificationEngine {
     public let exercise: ExerciseKind = .pushUps
+    public let method: ExerciseVerificationMethod = .visionBodyPose2D
     public let version = "pushup-v1"
     public let configuration: PushUpConfiguration
 
@@ -99,7 +100,7 @@ public struct PushUpEngine: ExerciseVerificationEngine {
         if !metrics.issues.isEmpty {
             var aborted: RepetitionOutcome?
             if case .down(let rep) = stage {
-                aborted = RepetitionOutcome(isValid: false, fault: .trackingLost, minimumAngle: rep.minAngle, maximumAngle: rep.maxAngle)
+                aborted = RepetitionOutcome(isValid: false, fault: .trackingLost, minimumValue: rep.minAngle, maximumValue: rep.maxAngle)
             }
             stage = .calibrating(goodFrames: 0)
             return update(.calibrating, issues: metrics.issues, feedback: feedback(for: metrics.issues), repetition: aborted, angle: elbow)
@@ -145,7 +146,7 @@ public struct PushUpEngine: ExerciseVerificationEngine {
                 let fault: RepetitionFault? = !rep.reachedBottom ? .insufficientDepth
                     : (rep.minBodyLine < configuration.minBodyLineAngle ? .bodyNotStraight : nil)
                 let outcome = RepetitionOutcome(isValid: fault == nil, fault: fault,
-                                                minimumAngle: rep.minAngle, maximumAngle: max(rep.maxAngle, elbow))
+                                                minimumValue: rep.minAngle, maximumValue: max(rep.maxAngle, elbow))
                 return update(.up, feedback: fault.map(Self.feedback(for:)) ?? .good, repetition: outcome, angle: elbow)
             }
 
@@ -153,7 +154,7 @@ public struct PushUpEngine: ExerciseVerificationEngine {
             if rep.reachedBottom && elbow >= configuration.reboundAngle { rep.rebounded = true }
             if rep.rebounded && elbow <= configuration.bottomAngle {
                 let outcome = RepetitionOutcome(isValid: false, fault: .incompleteLockout,
-                                                minimumAngle: rep.minAngle, maximumAngle: rep.maxAngle)
+                                                minimumValue: rep.minAngle, maximumValue: rep.maxAngle)
                 stage = .down(Rep(minAngle: elbow, maxAngle: elbow, reachedBottom: true, rebounded: false,
                                   minBodyLine: metrics.bodyLineAngle))
                 return update(.down, feedback: .returnToTop, repetition: outcome, angle: elbow)
@@ -219,7 +220,7 @@ public struct PushUpEngine: ExerciseVerificationEngine {
         var aborted: RepetitionOutcome?
         if gap > configuration.maxTrackingGap {
             if case .down(let rep) = stage {
-                aborted = RepetitionOutcome(isValid: false, fault: .trackingLost, minimumAngle: rep.minAngle, maximumAngle: rep.maxAngle)
+                aborted = RepetitionOutcome(isValid: false, fault: .trackingLost, minimumValue: rep.minAngle, maximumValue: rep.maxAngle)
             }
             stage = .calibrating(goodFrames: 0)
             smoothedElbow = nil
@@ -261,6 +262,6 @@ public struct PushUpEngine: ExerciseVerificationEngine {
 
     private func update(_ phase: MovementPhase, issues: [CalibrationIssue] = [], feedback: FormFeedback,
                         repetition: RepetitionOutcome? = nil, angle: Double?) -> ExerciseUpdate {
-        ExerciseUpdate(phase: phase, calibrationIssues: issues, feedback: feedback, repetition: repetition, primaryAngle: angle)
+        ExerciseUpdate(phase: phase, calibrationIssues: issues, feedback: feedback, repetition: repetition, primaryValue: angle)
     }
 }
