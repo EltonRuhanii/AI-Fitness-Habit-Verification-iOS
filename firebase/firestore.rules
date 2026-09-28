@@ -115,7 +115,7 @@ service cloud.firestore {
       // the recorded exercise sessions.
       allow update: if ownsExisting() && ownsIncoming()
         && resource.data.status in ['pending', 'inProgress']
-        && unchanged(['id', 'userId', 'sourceHabitId', 'sourceCompletionId', 'day', 'type', 'target', 'completedAt'])
+        && unchanged(['id', 'userId', 'sourceHabitId', 'sourceCompletionId', 'day', 'type', 'target', 'completedAt', 'progress', 'exerciseSessionIds'])
         && request.resource.data.deadline <= resource.data.deadline
         && request.resource.data.status in ['pending', 'inProgress'];
       allow delete: if false;

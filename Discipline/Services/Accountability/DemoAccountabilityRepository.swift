@@ -46,6 +46,21 @@ final class DemoAccountabilityRepository: AccountabilityRepository {
         }
     }
 
+    /// Server-equivalent evaluation after a session is stored: updates progress, and completes
+    /// the task if valid repetitions before the deadline reach the target.
+    func apply(sessions: [ExerciseSession], toTaskId taskId: String, now: Date = Date()) throws {
+        guard var task = tasks.snapshot().first(where: { $0.id == taskId }), task.status.isOpen else { return }
+        let progress = AccountabilityLifecycle.validRepetitions(for: task, sessions: sessions)
+        let status = AccountabilityLifecycle.evaluate(task, sessions: sessions, now: now)
+        if status == .completed || status == .expired {
+            try resolve(taskId: taskId, status: status, progress: progress, at: now)
+        } else {
+            task.progress = progress
+            task.exerciseSessionIds = sessions.map(\.id)
+            try tasks.upsert(task)
+        }
+    }
+
     func expireOverdue(now: Date = Date()) {
         for task in tasks.snapshot() where AccountabilityLifecycle.effectiveStatus(of: task, now: now) == .expired && task.status.isOpen {
             do {

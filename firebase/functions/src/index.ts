@@ -3,10 +3,12 @@ import { initializeApp } from "firebase-admin/app";
 import { randomUUID } from "node:crypto";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { logger } from "firebase-functions";
 import { defineSecret, defineString } from "firebase-functions/params";
-import { expireOverdueTasks } from "./accountability";
+import { applySessionsToTask, expireOverdueTasks } from "./accountability";
 import { FirestoreExpiryStore } from "./accountabilityStore";
+import { FirestoreSessionResolutionStore } from "./exerciseStore";
 import { loadCatalog } from "./criteria";
 import { FirestoreVerificationStore } from "./firestoreStore";
 import { AnthropicVisionProvider, DEFAULT_ANTHROPIC_MODEL } from "./providers/anthropic";
@@ -57,4 +59,15 @@ export const verifyEvidence = onCall(
 export const expireAccountabilityTasks = onSchedule({ schedule: "every 15 minutes", timeoutSeconds: 300 }, async () => {
   const expired = await expireOverdueTasks(new FirestoreExpiryStore(), new Date());
   if (expired > 0) logger.info(`Expired ${expired} accountability task(s).`);
+});
+
+/**
+ * When a camera exercise session is stored, recompute its task's progress and complete the
+ * task (resolving the skipped occurrence) once valid repetitions reach the target.
+ */
+export const onExerciseSessionCreated = onDocumentCreated("exerciseSessions/{sessionId}", async (event) => {
+  const taskId = event.data?.get("accountabilityTaskId");
+  if (typeof taskId !== "string") return;
+  const status = await applySessionsToTask(new FirestoreSessionResolutionStore(), taskId, new Date());
+  logger.info(`Session ${event.params.sessionId} applied to task ${taskId}: ${status ?? "task not found"}`);
 });

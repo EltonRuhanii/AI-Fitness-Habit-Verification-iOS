@@ -12,6 +12,7 @@ final class AppContainer {
     let habits: HabitRepository
     let completions: CompletionRepository
     let accountability: AccountabilityRepository
+    let exerciseSessions: ExerciseSessionRepository
     let evidence: EvidenceService
     let verification: AIVerificationService
     let sync: SyncMonitor
@@ -23,6 +24,7 @@ final class AppContainer {
         habits: HabitRepository,
         completions: CompletionRepository,
         accountability: AccountabilityRepository,
+        exerciseSessions: ExerciseSessionRepository,
         evidence: EvidenceService,
         verification: AIVerificationService,
         sync: SyncMonitor
@@ -33,6 +35,7 @@ final class AppContainer {
         self.habits = habits
         self.completions = completions
         self.accountability = accountability
+        self.exerciseSessions = exerciseSessions
         self.evidence = evidence
         self.verification = verification
         self.sync = sync
@@ -50,6 +53,7 @@ final class AppContainer {
                 habits: FirestoreHabitRepository(monitor: sync),
                 completions: FirestoreCompletionRepository(monitor: sync),
                 accountability: FirestoreAccountabilityRepository(monitor: sync),
+                exerciseSessions: FirestoreExerciseSessionRepository(monitor: sync),
                 evidence: FirebaseEvidenceService(),
                 verification: FirebaseVerificationService(),
                 sync: sync
@@ -67,13 +71,15 @@ final class AppContainer {
         let habits = DemoHabitRepository()
         let completions = DemoCompletionRepository()
         let evidenceBackend = DemoEvidenceBackend(completions: completions, habits: habits)
+        let accountability = DemoAccountabilityRepository(completions: completions)
         return AppContainer(
             configuration: configuration,
             auth: DemoAuthenticationService(defaults: defaults),
             users: DemoUserRepository(),
             habits: habits,
             completions: completions,
-            accountability: DemoAccountabilityRepository(completions: completions),
+            accountability: accountability,
+            exerciseSessions: DemoExerciseSessionRepository(accountability: accountability),
             evidence: evidenceBackend,
             verification: evidenceBackend,
             sync: sync

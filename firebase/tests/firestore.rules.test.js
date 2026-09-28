@@ -127,6 +127,7 @@ test('accountability task cannot be self-completed or exceed safety limit', asyn
   await assertSucceeds(setDoc(doc(alice(), 'accountabilityTasks/t1'), task));
   await assertSucceeds(updateDoc(doc(alice(), 'accountabilityTasks/t1'), { status: 'inProgress' }));
   await assertFails(updateDoc(doc(alice(), 'accountabilityTasks/t1'), { status: 'completed' }));
+  await assertFails(updateDoc(doc(alice(), 'accountabilityTasks/t1'), { progress: 50 }));
   await assertFails(updateDoc(doc(alice(), 'accountabilityTasks/t1'), { deadline: new Date(Date.now() + 10 * 86_400_000) }));
 });
 

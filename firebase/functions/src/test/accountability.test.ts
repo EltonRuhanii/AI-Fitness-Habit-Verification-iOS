@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  applySessionsToTask,
   completionStatusFor,
   evaluateTask,
   expireOverdueTasks,
@@ -71,4 +72,45 @@ test("expiry job expires only overdue open tasks and fails their occurrences, ac
   assert.deepEqual(store.resolved.map((r) => r.id).sort(), ["overdue1", "overdue2", "overdue3"]);
   assert.ok(store.resolved.every((r) => r.status === "expired" && r.completion === "failed"));
   assert.equal(store.tasks.find((t) => t.id === "future")?.status, "pending");
+});
+
+class FakeSessionStore {
+  constructor(
+    public task: (TaskState & { userId: string }) | null,
+    public sessions: (SessionState & { userId: string })[],
+  ) {}
+  applied: { progress: number; status: string | null; completion: string | null }[] = [];
+  async getTask() { return this.task; }
+  async getSessions() { return this.sessions; }
+  async applyProgress(_id: string, progress: number, status: TaskState["status"] | null, completion: string | null) {
+    this.applied.push({ progress, status, completion });
+    if (this.task && status) this.task.status = status;
+    return true;
+  }
+}
+
+test("session application: partial progress, then completion resolves the occurrence", async () => {
+  const during = new Date(accepted.getTime() + 3_600_000);
+  const store = new FakeSessionStore({ ...task(), userId: "alice" }, [{ ...session(30, during), userId: "alice" }]);
+  assert.equal(await applySessionsToTask(store, "t1", during), "pending");
+  assert.deepEqual(store.applied[0], { progress: 30, status: null, completion: null });
+
+  store.sessions.push({ ...session(20, during), userId: "alice" });
+  assert.equal(await applySessionsToTask(store, "t1", during), "completed");
+  assert.deepEqual(store.applied[1], { progress: 50, status: "completed", completion: "resolved" });
+});
+
+test("session application ignores other users' sessions and missing tasks", async () => {
+  const during = new Date(accepted.getTime() + 60_000);
+  const store = new FakeSessionStore({ ...task(), userId: "alice" }, [{ ...session(50, during), userId: "mallory" }]);
+  assert.equal(await applySessionsToTask(store, "t1", during), "pending");
+  assert.equal(store.applied[0].progress, 0);
+  assert.equal(await applySessionsToTask(new FakeSessionStore(null, []), "missing", during), null);
+});
+
+test("a session received after the deadline expires the task instead of completing it", async () => {
+  const late = new Date(deadline.getTime() + 60_000);
+  const store = new FakeSessionStore({ ...task(), userId: "alice" }, [{ ...session(50, late), userId: "alice" }]);
+  assert.equal(await applySessionsToTask(store, "t1", late), "expired");
+  assert.deepEqual(store.applied[0], { progress: 0, status: "expired", completion: "failed" });
 });

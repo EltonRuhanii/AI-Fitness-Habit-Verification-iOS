@@ -5,6 +5,7 @@ import DisciplineCore
 struct DashboardView: View {
     @Environment(SessionStore.self) private var session
     @Environment(HabitsStore.self) private var store
+    @Environment(AppContainer.self) private var container
 
     @State private var creatingHabit = false
     @State private var actionTarget: Habit?
@@ -34,10 +35,8 @@ struct DashboardView: View {
             .sheet(item: $skipTarget) { habit in
                 SkipConfirmationSheet(habit: habit)
             }
-            .alert("Exercise camera", isPresented: Binding(get: { startingTask != nil }, set: { if !$0 { startingTask = nil } })) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("Camera repetition counting for \(startingTask?.title ?? "this task") arrives in the next update.")
+            .fullScreenCover(item: $startingTask) { task in
+                ExerciseCameraView(task: task, store: store, container: container)
             }
             .alert("Couldn't add habits", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
                 Button("OK", role: .cancel) {}

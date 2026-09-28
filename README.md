@@ -110,6 +110,31 @@ Skipping a session habit shows its pre-agreed consequence (e.g. 50 push-ups) and
 - Clients can only create a task or start it (`pending → inProgress`). Completion and expiry are server-only, enforced by the security rules.
 - Consequences are capped per exercise type (push-ups: 100) and the deadline is capped at 48 h.
 
+### Exercise verification (computer vision)
+
+Accountability push-ups are counted on the device. No video is recorded or uploaded.
+
+```text
+Front camera (AVFoundation, 720p) → Apple Vision VNDetectHumanBodyPoseRequest (~15 fps)
+  → PoseFrame (13 landmarks, confidence, aspect ratio)
+  → PushUpEngine (DisciplineCore, pure Swift):
+      calibration gate: required landmarks ≥ 0.3 confidence, not at frame edge,
+                        body ≥ 25% of frame width, body within 40° of horizontal,
+                        mean confidence ≥ 0.5, for 10 consecutive frames
+      elbow angle (shoulder–elbow–wrist, aspect-corrected, EMA-smoothed)
+      state machine: up (≥150°) → down (<140°) → bottom (≤95°) → up (≥150°) = 1 rep
+      valid only if the bottom was reached and shoulder–hip–ankle stayed ≥150°
+      faults: insufficientDepth, incompleteLockout, bodyNotStraight, trackingLost
+  → ExerciseSessionRecorder → exerciseSessions/{id} (per-rep events with min/max angle)
+  → onExerciseSessionCreated (Cloud Function): sums valid reps before the deadline, using
+    the server receive time, and completes the task / resolves the skipped occurrence
+```
+
+- **Engine:** thresholds live in `PushUpConfiguration`, and every session stores `engineVersion` (`pushup-v1`) for reproducibility.
+- **Extensible:** new exercises implement the `ExerciseVerificationEngine` protocol. Squats, sit-ups and lunges are planned.
+- **Tested:** the state machine is unit-tested with synthetic poses covering valid, partial, bounce, sagging, noise and tracking-loss cases (`PushUpEngineTests`).
+- **Anti-cheating:** the live camera, continuous tracking, the calibration gate and the per-rep criteria make simple cheating harder. The server ignores client clocks for deadlines. A modified app could still forge a session, as listed under limitations.
+
 ### Security model (summary)
 
 - Users can read only documents whose `userId` is their own uid.

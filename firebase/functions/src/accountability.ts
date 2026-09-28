@@ -70,3 +70,32 @@ export async function expireOverdueTasks(store: ExpiryStore, now: Date, limit = 
     if (overdue.length < limit || changed === 0) return expired;
   }
 }
+
+/** Persistence boundary for applying exercise sessions to their task. */
+export interface SessionResolutionStore {
+  getTask(taskId: string): Promise<(TaskState & { userId: string }) | null>;
+  /**
+   * Sessions for the task. `completedAt` must be the EARLIER of the client-reported end time
+   * and the server's receive time, so a session can't be backdated to beat the deadline.
+   */
+  getSessions(taskId: string): Promise<(SessionState & { userId: string })[]>;
+  /** Transactionally: if the task is still open, set progress and, when given, the new status. */
+  applyProgress(taskId: string, progress: number, status: TaskStatus | null, completionStatus: string | null, now: Date): Promise<boolean>;
+}
+
+/**
+ * Re-evaluates a task after one of its exercise sessions is stored: updates progress (valid
+ * reps before the deadline) and completes the task — resolving the skipped occurrence — once
+ * the target is reached. Returns the resulting status, or null if the task doesn't exist.
+ */
+export async function applySessionsToTask(store: SessionResolutionStore, taskId: string, now: Date): Promise<TaskStatus | null> {
+  const task = await store.getTask(taskId);
+  if (!task) return null;
+  // Only the task owner's sessions count (also enforced by security rules).
+  const sessions = (await store.getSessions(taskId)).filter((s) => s.userId === task.userId);
+  const progress = validRepetitions(task, sessions);
+  const status = evaluateTask(task, sessions, now);
+  const changed = status !== task.status ? status : null;
+  await store.applyProgress(taskId, progress, changed, changed ? completionStatusFor(changed) : null, now);
+  return status;
+}
