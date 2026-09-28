@@ -90,6 +90,19 @@ struct HabitEditorView: View {
                     Text("With AI-assisted tracking, evidence-required habits are completed by submitting a photo that's automatically checked against criteria for its category. With manual tracking, evidence isn't requested. Optional habits don't affect your streak.")
                 }
 
+                if draft.unit == .sessions {
+                    Section {
+                        Stepper(value: skipTarget, in: 10...100, step: 5) {
+                            LabeledContent("Push-ups", value: "\(skipTarget.wrappedValue)")
+                        }
+                        .accessibilityIdentifier("editor.skipTarget")
+                    } header: {
+                        Text("If you skip")
+                    } footer: {
+                        Text("Skipping a session creates this accountability task, counted by your camera. You'll see it and confirm it every time before skipping. More exercises will be added.")
+                    }
+                }
+
                 Section("Dates") {
                     DatePicker("Starts", selection: $startDate, displayedComponents: .date)
                     Toggle("End date", isOn: $hasEndDate.animation())
@@ -188,6 +201,14 @@ struct HabitEditorView: View {
     }
 
     // MARK: Logic
+
+    /// Push-up consequence for skipping. Push-ups are currently the only camera-verified exercise.
+    private var skipTarget: Binding<Int> {
+        Binding(
+            get: { draft.skipConsequence?.target ?? AccountabilityPlanner.fallbackConsequence.target },
+            set: { draft.skipConsequence = AccountabilityTemplate(type: .pushUps, target: $0) }
+        )
+    }
 
     private var canSave: Bool {
         !draft.name.trimmingCharacters(in: .whitespaces).isEmpty

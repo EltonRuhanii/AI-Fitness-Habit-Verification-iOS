@@ -31,7 +31,7 @@ The project was established from scratch.
 | 3 | Dashboard | 🔨 | ✅ Today's commitments, weekly goal bars, sync status · ⏳ streak display (Phase 8), accountability items (Phase 6), recent activity |
 | 4 | Photo evidence | ✅ | Camera (permission handling) + PhotosPicker, preview/retake, downscale + EXIF/GPS stripping, private Storage upload, atomic evidence + pending completion |
 | 5 | AI verification | ✅ | `verifyEvidence` Cloud Function (Claude, structured output, refusal fallback, secret key), shared criteria catalog, deterministic policy in Swift + TS with shared test vectors, immutable history incl. failures, retry, result UI, on-device demo verifier |
-| 6 | Accountability | ⏳ | Skip → consequence preview → explicit accept, task lifecycle, deadline expiry |
+| 6 | Accountability | ✅ | Skip → consequence preview → explicit accept (nothing recorded on "Go back"), per-habit push-up consequence (10–100), task lifecycle in core + server, scheduled server-side expiry, dashboard accountability section with countdown |
 | 7 | Exercise CV | ⏳ | Camera pipeline, Vision body pose, calibration, `ExerciseVerificationEngine` protocol, push-up state machine (core + tests), live UI, session storage |
 | 8 | Streak engine | ⏳ | Day resolver (feasibility rule for weekly targets), streak calculation, calendar, milestones |
 | 9 | Challenges | ⏳ | Challenge builder, rules configuration, 75-day template, rule locking |

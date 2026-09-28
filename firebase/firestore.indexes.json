@@ -27,6 +27,14 @@
       ]
     },
     {
+      "collectionGroup": "accountabilityTasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "deadline", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "verifications",
       "queryScope": "COLLECTION",
       "fields": [

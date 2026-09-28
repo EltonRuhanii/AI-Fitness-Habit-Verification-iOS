@@ -8,6 +8,8 @@ struct DashboardView: View {
 
     @State private var creatingHabit = false
     @State private var actionTarget: Habit?
+    @State private var skipTarget: Habit?
+    @State private var startingTask: AccountabilityTask?
     @State private var errorMessage: String?
 
     var body: some View {
@@ -29,6 +31,14 @@ struct DashboardView: View {
                 HabitEditorView(habit: nil, userId: store.userId, today: store.today, calendar: store.calendar)
             }
             .habitCompletionFlow(target: $actionTarget)
+            .sheet(item: $skipTarget) { habit in
+                SkipConfirmationSheet(habit: habit)
+            }
+            .alert("Exercise camera", isPresented: Binding(get: { startingTask != nil }, set: { if !$0 { startingTask = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Camera repetition counting for \(startingTask?.title ?? "this task") arrives in the next update.")
+            }
             .alert("Couldn't add habits", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -51,6 +61,7 @@ struct DashboardView: View {
             if store.activeHabits.isEmpty {
                 emptyState
             } else {
+                accountabilitySection
                 todaySection
                 weeklySection
             }
@@ -88,6 +99,21 @@ struct DashboardView: View {
 
     // MARK: Today
 
+    @ViewBuilder
+    private var accountabilitySection: some View {
+        let open = store.openAccountabilityTasks
+        if !open.isEmpty {
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                SectionEyebrow(title: "Accountability", trailing: "\(open.count) due")
+                ForEach(open) { task in
+                    AccountabilityTaskCard(task: task, habitName: store.habit(id: task.sourceHabitId)?.name) {
+                        startingTask = task
+                    }
+                }
+            }
+        }
+    }
+
     private var todaySection: some View {
         let commitments = store.todayCommitments
         let outstanding = commitments.filter(\.isOutstanding).count
@@ -103,6 +129,11 @@ struct DashboardView: View {
                     ForEach(commitments) { commitment in
                         NavigationLink(value: commitment.habit.id) {
                             CommitmentRow(commitment: commitment) { actionTarget = commitment.habit }
+                        }
+                        .contextMenu {
+                            if store.canSkip(commitment.habit) {
+                                Button("Skip today…", systemImage: "arrow.uturn.forward") { skipTarget = commitment.habit }
+                            }
                         }
                         .buttonStyle(.plain)
                         if commitment.id != commitments.last?.id {
@@ -209,6 +240,11 @@ private struct CommitmentRow: View {
                 .font(.system(size: 28))
                 .foregroundStyle(Theme.Palette.info)
                 .accessibilityLabel("Awaiting verification")
+        case .accountabilityDue:
+            Image(systemName: "figure.strengthtraining.traditional.circle.fill")
+                .font(.system(size: 28))
+                .foregroundStyle(Theme.Palette.warning)
+                .accessibilityLabel("Accountability task due")
         case .open, .inProgress:
             if canActToday {
                 Button(action: onAction) {
@@ -252,6 +288,8 @@ private struct CommitmentRow: View {
             return habit.frequency == .weekly ? "Weekly target met" : "Done"
         case .awaitingVerification:
             return CompletionStatus.pendingVerification.label
+        case .accountabilityDue:
+            return "Skipped · accountability task due"
         case .inProgress, .open:
             let periodWord = habit.frequency == .weekly ? "this week" : "today"
             let amount = "\(habit.formatted(progress.achieved)) / \(habit.formatted(progress.target)) \(periodWord)"
@@ -263,6 +301,7 @@ private struct CommitmentRow: View {
         switch commitment.state {
         case .done: return Theme.Palette.success
         case .awaitingVerification: return Theme.Palette.info
+        case .accountabilityDue: return Theme.Palette.warning
         case .inProgress, .open: return Theme.Palette.textSecondary
         }
     }

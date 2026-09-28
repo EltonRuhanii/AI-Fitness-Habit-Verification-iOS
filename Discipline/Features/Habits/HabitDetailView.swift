@@ -8,6 +8,7 @@ struct HabitDetailView: View {
     @State private var editing = false
     @State private var actionTarget: Habit?
     @State private var verificationSheet: VerificationDetailSheet.Source?
+    @State private var skipping = false
 
     private var habit: Habit? { store.habits.first { $0.id == habitId } }
 
@@ -36,7 +37,15 @@ struct HabitDetailView: View {
         }
         .safeAreaInset(edge: .bottom) {
             if habit.isActive {
-                HabitPrimaryButton(habit: habit) { actionTarget = habit }
+                VStack(spacing: Theme.Spacing.xs) {
+                    HabitPrimaryButton(habit: habit) { actionTarget = habit }
+                    if store.canSkip(habit), let consequence = store.skipConsequence(for: habit) {
+                        Button("Skip today (\(consequence.title.lowercased()))") { skipping = true }
+                            .font(Theme.Typography.callout.weight(.semibold))
+                            .foregroundStyle(Theme.Palette.textSecondary)
+                            .accessibilityIdentifier("habit.skip")
+                    }
+                }
                     .padding(.horizontal, Theme.Spacing.md)
                     .padding(.vertical, Theme.Spacing.sm)
                     .background(Theme.Palette.background)
@@ -52,6 +61,9 @@ struct HabitDetailView: View {
         }
         .sheet(item: $verificationSheet) { source in
             VerificationDetailSheet(source: source)
+        }
+        .sheet(isPresented: $skipping) {
+            SkipConfirmationSheet(habit: habit)
         }
     }
 

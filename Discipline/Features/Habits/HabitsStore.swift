@@ -18,6 +18,7 @@ final class HabitsStore {
 
     private(set) var habits: [Habit] = []
     private(set) var completions: [HabitCompletion] = []
+    private(set) var accountabilityTasks: [AccountabilityTask] = []
     private(set) var loadState: LoadState = .loading
     private(set) var today: DayKey
     /// Incremented on every successful completion; drives success haptics.
@@ -30,7 +31,10 @@ final class HabitsStore {
 
     private let habitRepository: HabitRepository
     private let completionRepository: CompletionRepository
-    private var tasks: [Task<Void, Never>] = []
+    private let accountabilityRepository: AccountabilityRepository
+    private var listeners: [Task<Void, Never>] = []
+    /// Skipping rules. Phase 9 replaces these defaults with the active challenge's rules.
+    let rules = ChallengeRules()
 
     init(profile: UserProfile, container: AppContainer, calendar: Calendar = .disciplineCalendar()) {
         self.userId = profile.id
@@ -39,6 +43,7 @@ final class HabitsStore {
         self.today = DayKey.today(calendar: calendar)
         self.habitRepository = container.habits
         self.completionRepository = container.completions
+        self.accountabilityRepository = container.accountability
         self.sync = container.sync
     }
 
@@ -82,13 +87,40 @@ final class HabitsStore {
         return habit.unit != .sessions || canLogSession(for: habit)
     }
 
+    // MARK: Accountability
+
+    func canSkip(_ habit: Habit) -> Bool {
+        AccountabilityPlanner.canSkip(habit, on: today, completions: completions, rules: rules, calendar: calendar)
+    }
+
+    func skipConsequence(for habit: Habit) -> AccountabilityTemplate? {
+        AccountabilityPlanner.consequence(for: habit, rules: rules)
+    }
+
+    /// Tasks the participant can still act on, soonest deadline first. Uses the effective
+    /// status so an overdue task never appears doable before the server expires it.
+    var openAccountabilityTasks: [AccountabilityTask] {
+        let now = Date()
+        return accountabilityTasks
+            .filter { AccountabilityLifecycle.effectiveStatus(of: $0, now: now).isOpen }
+            .sorted { $0.deadline < $1.deadline }
+    }
+
+    func accountabilityTask(id: String) -> AccountabilityTask? {
+        accountabilityTasks.first { $0.id == id }
+    }
+
+    func habit(id: String) -> Habit? {
+        habits.first { $0.id == id }
+    }
+
     // MARK: Loading
 
     func start() {
-        guard tasks.isEmpty else { return }
+        guard listeners.isEmpty else { return }
         let from = today.adding(days: -Self.historyDays, calendar: calendar)
 
-        tasks.append(Task { [weak self, habitRepository, userId] in
+        listeners.append(Task { [weak self, habitRepository, userId] in
             do {
                 for try await habits in habitRepository.observeHabits(userId: userId) {
                     self?.habits = habits
@@ -98,7 +130,7 @@ final class HabitsStore {
                 self?.loadState = .failed(AppError.from(error))
             }
         })
-        tasks.append(Task { [weak self, completionRepository, userId] in
+        listeners.append(Task { [weak self, completionRepository, userId] in
             do {
                 for try await completions in completionRepository.observeCompletions(userId: userId, from: from) {
                     self?.completions = completions
@@ -107,22 +139,32 @@ final class HabitsStore {
                 self?.loadState = .failed(AppError.from(error))
             }
         })
+        listeners.append(Task { [weak self, accountabilityRepository, userId] in
+            do {
+                for try await tasks in accountabilityRepository.observeTasks(userId: userId) {
+                    self?.accountabilityTasks = tasks
+                }
+            } catch {
+                self?.loadState = .failed(AppError.from(error))
+            }
+        })
     }
 
     func restart() {
-        tasks.forEach { $0.cancel() }
-        tasks.removeAll()
+        listeners.forEach { $0.cancel() }
+        listeners.removeAll()
         loadState = .loading
         start()
     }
 
-    /// Call when the app returns to the foreground so "today" rolls over at midnight.
+    /// Call when the app returns to the foreground so "today" rolls over at midnight and
+    /// overdue accountability tasks are re-evaluated.
     func refreshToday() {
         let now = DayKey.today(calendar: calendar)
         if now != today {
             today = now
-            restart()
         }
+        restart()
     }
 
     private func markLoaded() {
@@ -174,6 +216,28 @@ final class HabitsStore {
         completionEvents += 1
     }
 
+    /// Records a skip the participant has explicitly accepted, creating its accountability task.
+    @discardableResult
+    func acceptSkip(_ habit: Habit) throws -> AccountabilityTask {
+        do {
+            let plan = try AccountabilityPlanner.planSkip(
+                habit: habit, day: today, condition: condition, existing: completions, rules: rules, calendar: calendar
+            )
+            try accountabilityRepository.recordSkip(plan)
+            return plan.task
+        } catch let error as SkipPlanError {
+            throw AppError.validation(error.message(for: habit))
+        }
+    }
+
+    /// Marks a task as started (pending → inProgress). Completion is decided by the server.
+    func markStarted(_ task: AccountabilityTask) throws {
+        guard task.status == .pending else { return }
+        var started = task
+        started.status = .inProgress
+        try accountabilityRepository.save(started)
+    }
+
     /// Logs a self-reported completion for today.
     func logSelfReport(_ habit: Habit, quantity: Int = 1) throws {
         do {
@@ -189,6 +253,17 @@ final class HabitsStore {
             completionEvents += 1
         } catch let error as CompletionPlanError {
             throw AppError.validation(error.message(for: habit))
+        }
+    }
+}
+
+extension SkipPlanError {
+    func message(for habit: Habit) -> String {
+        switch self {
+        case .notScheduled: return "\(habit.name) isn't scheduled today."
+        case .skippingNotAllowed: return "Skipping isn't allowed by your challenge rules."
+        case .notSkippable: return "\(habit.name) can't be skipped. Only session habits can be skipped."
+        case .alreadyResolvedToday: return "\(habit.name) is already logged or skipped for today."
         }
     }
 }

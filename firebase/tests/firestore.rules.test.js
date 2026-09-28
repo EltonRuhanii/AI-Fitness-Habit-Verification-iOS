@@ -130,6 +130,18 @@ test('accountability task cannot be self-completed or exceed safety limit', asyn
   await assertFails(updateDoc(doc(alice(), 'accountabilityTasks/t1'), { deadline: new Date(Date.now() + 10 * 86_400_000) }));
 });
 
+test('participant can record an accepted skip, but cannot resolve it themselves', async () => {
+  await seed('users/alice', profile('alice', 'aiAssisted'));
+  await seed('habits/h1', { id: 'h1', userId: 'alice', requiresEvidence: true });
+  const task = { id: 't1', userId: 'alice', sourceHabitId: 'h1', sourceCompletionId: 'c1', day: '2026-09-28',
+    type: 'pushUps', target: 50, progress: 0, status: 'pending', deadline: new Date(Date.now() + 86_400_000) };
+  await assertSucceeds(setDoc(doc(alice(), 'accountabilityTasks/t1'), task));
+  await assertSucceeds(setDoc(doc(alice(), 'habitCompletions/c1'),
+    completion({ status: 'accountabilityRequired', method: 'accountabilityExercise', accountabilityTaskId: 't1' })));
+  await assertFails(updateDoc(doc(alice(), 'habitCompletions/c1'), { status: 'resolved' }));
+  await assertFails(updateDoc(doc(alice(), 'habitCompletions/c1'), { status: 'selfReported' }));
+});
+
 test('exercise sessions are write-once and tied to own task', async () => {
   await seed('accountabilityTasks/t1', { id: 't1', userId: 'alice' });
   await seed('accountabilityTasks/tb', { id: 'tb', userId: 'bob' });

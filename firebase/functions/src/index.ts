@@ -2,7 +2,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { initializeApp } from "firebase-admin/app";
 import { randomUUID } from "node:crypto";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
+import { logger } from "firebase-functions";
 import { defineSecret, defineString } from "firebase-functions/params";
+import { expireOverdueTasks } from "./accountability";
+import { FirestoreExpiryStore } from "./accountabilityStore";
 import { loadCatalog } from "./criteria";
 import { FirestoreVerificationStore } from "./firestoreStore";
 import { AnthropicVisionProvider, DEFAULT_ANTHROPIC_MODEL } from "./providers/anthropic";
@@ -44,3 +48,13 @@ export const verifyEvidence = onCall(
     }
   },
 );
+
+/**
+ * Expires accountability tasks whose deadline passed without enough valid repetitions, and
+ * marks the skipped occurrence as failed. Runs server-side so expiry can't be avoided by
+ * keeping the app closed.
+ */
+export const expireAccountabilityTasks = onSchedule({ schedule: "every 15 minutes", timeoutSeconds: 300 }, async () => {
+  const expired = await expireOverdueTasks(new FirestoreExpiryStore(), new Date());
+  if (expired > 0) logger.info(`Expired ${expired} accountability task(s).`);
+});

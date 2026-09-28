@@ -7,6 +7,8 @@ public struct TodayCommitment: Hashable, Sendable, Identifiable {
         case done
         /// Evidence submitted, waiting for verification.
         case awaitingVerification
+        /// Skipped today; the accepted accountability task isn't done yet.
+        case accountabilityDue
         /// Some progress, target not met yet.
         case inProgress
         /// Nothing logged yet in the current period.
@@ -39,9 +41,12 @@ public enum TodayCommitments {
             }
             let todays = completions.filter { $0.habitId == habit.id && $0.day == today }
             let isAwaiting = todays.contains { $0.status == .pendingVerification }
+            let isAccountabilityDue = todays.contains { $0.status == .accountabilityRequired }
             let state: TodayCommitment.State
             if progress.isMet {
                 state = .done
+            } else if isAccountabilityDue {
+                state = .accountabilityDue
             } else if isAwaiting {
                 state = .awaitingVerification
             } else if progress.achieved > 0 {
@@ -77,7 +82,7 @@ public enum HabitTemplates {
             Habit(userId: userId, name: "Running", description: "Outdoor or treadmill run.", category: .running,
                   frequency: .weekly, unit: .sessions, targetCount: 2, startDate: startDate,
                   requiresEvidence: true, verificationType: .photoAI,
-                  skipConsequence: AccountabilityTemplate(type: .squats, target: 50)),
+                  skipConsequence: AccountabilityTemplate(type: .pushUps, target: 40)),
             Habit(userId: userId, name: "Reading", description: "Non-fiction or personal development.", category: .reading,
                   frequency: .weekly, unit: .pages, targetCount: 100, startDate: startDate,
                   requiresEvidence: false, verificationType: .manual),

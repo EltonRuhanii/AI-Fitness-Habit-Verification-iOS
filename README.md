@@ -101,6 +101,15 @@ Function: ownership + attempt-limit checks → criteria for the habit's category
 - **Refusal fallback.** If the provider's safety classifier declines, the request is retried server-side on Anthropic's recommended fallback model (`fallbacks: "default"`). The served model is recorded.
 - **Demo mode** runs Apple's on-device image classifier through the same policy. It is labelled as a demo classifier and is not used for study data.
 
+### Accountability (skipping)
+
+Skipping a session habit shows its pre-agreed consequence (e.g. 50 push-ups) and deadline, and the skip is only recorded after the participant explicitly accepts. Skipping creates an `accountabilityTasks` document and turns that day's occurrence into `accountabilityRequired`.
+
+- **Completed:** valid camera-counted repetitions (Phase 7) reach the target before the deadline. The task becomes `completed` and the occurrence `resolved`, which counts toward the target as a separate status from `selfReported`/`verified`.
+- **Expired:** the deadline passes first. The `expireAccountabilityTasks` scheduled function (every 15 min) sets the task to `expired` and the occurrence to `failed`. Demo mode applies the same rule on device.
+- Clients can only create a task or start it (`pending → inProgress`). Completion and expiry are server-only, enforced by the security rules.
+- Consequences are capped per exercise type (push-ups: 100) and the deadline is capped at 48 h.
+
 ### Security model (summary)
 
 - Users can read only documents whose `userId` is their own uid.
