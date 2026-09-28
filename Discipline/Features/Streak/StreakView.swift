@@ -12,9 +12,13 @@ struct StreakView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-                    hero
-                    statsRow
-                    milestoneCard
+                    if !store.rules.streakEnabled {
+                        InlineMessage(text: "Streaks are turned off in your current challenge. Days are still recorded below.", style: .info)
+                    } else {
+                        hero
+                        statsRow
+                        milestoneCard
+                    }
                     calendarCard
                     explanation
                 }

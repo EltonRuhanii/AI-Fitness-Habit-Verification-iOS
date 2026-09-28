@@ -13,6 +13,7 @@ final class AppContainer {
     let completions: CompletionRepository
     let accountability: AccountabilityRepository
     let exerciseSessions: ExerciseSessionRepository
+    let challenges: ChallengeRepository
     let evidence: EvidenceService
     let verification: AIVerificationService
     let sync: SyncMonitor
@@ -25,6 +26,7 @@ final class AppContainer {
         completions: CompletionRepository,
         accountability: AccountabilityRepository,
         exerciseSessions: ExerciseSessionRepository,
+        challenges: ChallengeRepository,
         evidence: EvidenceService,
         verification: AIVerificationService,
         sync: SyncMonitor
@@ -36,6 +38,7 @@ final class AppContainer {
         self.completions = completions
         self.accountability = accountability
         self.exerciseSessions = exerciseSessions
+        self.challenges = challenges
         self.evidence = evidence
         self.verification = verification
         self.sync = sync
@@ -54,6 +57,7 @@ final class AppContainer {
                 completions: FirestoreCompletionRepository(monitor: sync),
                 accountability: FirestoreAccountabilityRepository(monitor: sync),
                 exerciseSessions: FirestoreExerciseSessionRepository(monitor: sync),
+                challenges: FirestoreChallengeRepository(monitor: sync),
                 evidence: FirebaseEvidenceService(),
                 verification: FirebaseVerificationService(),
                 sync: sync
@@ -80,6 +84,7 @@ final class AppContainer {
             completions: completions,
             accountability: accountability,
             exerciseSessions: DemoExerciseSessionRepository(accountability: accountability),
+            challenges: DemoChallengeRepository(),
             evidence: evidenceBackend,
             verification: evidenceBackend,
             sync: sync

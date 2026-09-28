@@ -68,6 +68,10 @@ public struct Challenge: Codable, Identifiable, Hashable, Sendable {
     public var rules: ChallengeRules
     public var status: ChallengeStatus
     public var createdAt: Date
+    /// When the participant explicitly accepted the rules (required before starting).
+    public var rulesAcceptedAt: Date?
+    /// Template the challenge was created from (e.g. `75-day-discipline`), if any.
+    public var templateId: String?
 
     public init(
         id: String = UUID().uuidString,
@@ -79,6 +83,8 @@ public struct Challenge: Codable, Identifiable, Hashable, Sendable {
         rules: ChallengeRules,
         status: ChallengeStatus = .active,
         createdAt: Date = Date(),
+        rulesAcceptedAt: Date? = nil,
+        templateId: String? = nil,
         calendar: Calendar = .disciplineCalendar()
     ) {
         self.id = id
@@ -91,6 +97,8 @@ public struct Challenge: Codable, Identifiable, Hashable, Sendable {
         self.rules = rules
         self.status = status
         self.createdAt = createdAt
+        self.rulesAcceptedAt = rulesAcceptedAt
+        self.templateId = templateId
     }
 
     /// 1-based day number within the challenge, or `nil` outside its range.

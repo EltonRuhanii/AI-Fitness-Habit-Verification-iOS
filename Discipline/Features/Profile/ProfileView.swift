@@ -3,6 +3,7 @@ import DisciplineCore
 
 struct ProfileView: View {
     @Environment(SessionStore.self) private var session
+    @Environment(HabitsStore.self) private var store
     @AppStorage("appearance") private var appearance: AppearancePreference = .dark
 
     @State private var confirmsDeletion = false
@@ -27,6 +28,15 @@ struct ProfileView: View {
                         }
                         LabeledContent("Tracking mode", value: profile.trackingCondition.displayName)
                     }
+                }
+
+                Section("Challenge") {
+                    NavigationLink {
+                        ChallengeHubView()
+                    } label: {
+                        LabeledContent("Current challenge", value: store.activeChallenge?.name ?? store.upcomingChallenge?.name ?? "None")
+                    }
+                    .accessibilityIdentifier("profile.challenge")
                 }
 
                 Section("Appearance") {

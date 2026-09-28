@@ -157,6 +157,16 @@ Front camera (AVFoundation, 720p) → Apple Vision VNDetectHumanBodyPoseRequest 
 - **Milestones** (3, 7, 14, 30, 60, 75, 100) are display-only and never feed into research measures.
 - **Archiving** a habit sets its end date, so it keeps its history but stops being due.
 
+### Challenges
+
+A challenge bundles a duration (7–365 days), its habits and a rule set. Participants start one from the **75 Day Discipline** template (gym 4×/week, running 2×/week, reading 100 pages/week, cold plunge 3×/week, daily progress photo) or build a **custom** challenge from their existing habits.
+
+- **Participant-configurable rules:** streak on/off, every commitment required, skipping allowed plus default push-up consequence, missed day breaks vs. pauses the streak, and whether an uncertain AI result counts.
+- **Study parameters** are shown but locked: AI verification, exercise verification, and the confidence threshold. They are identical for all participants.
+- **Acceptance:** rules must be explicitly accepted (`rulesAcceptedAt`) and are locked once the challenge is active. This is enforced by the Firestore rules, and the demo backend mirrors it.
+- **Scope:** while a challenge is active, its rules govern skipping, counting and the streak, and only its habits and days count toward the streak.
+- **Lifecycle:** there is one active or upcoming challenge at a time. It is marked `completed` after its last day. Abandoning keeps all history and stops its habits from that day.
+
 ### Security model (summary)
 
 - Users can read only documents whose `userId` is their own uid.

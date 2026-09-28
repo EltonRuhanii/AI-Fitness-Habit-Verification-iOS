@@ -20,6 +20,7 @@ final class HabitsStore {
     private(set) var habits: [Habit] = []
     private(set) var completions: [HabitCompletion] = []
     private(set) var accountabilityTasks: [AccountabilityTask] = []
+    private(set) var challenges: [Challenge] = []
     private(set) var loadState: LoadState = .loading
     private(set) var today: DayKey
     /// Incremented on every successful completion; drives success haptics.
@@ -35,9 +36,15 @@ final class HabitsStore {
     private let habitRepository: HabitRepository
     private let completionRepository: CompletionRepository
     private let accountabilityRepository: AccountabilityRepository
+    private let challengeRepository: ChallengeRepository
     private var listeners: [Task<Void, Never>] = []
-    /// Skipping rules. Phase 9 replaces these defaults with the active challenge's rules.
-    let rules = ChallengeRules()
+
+    /// The challenge currently in progress, if any. Its rules govern skipping, counting and streaks.
+    var activeChallenge: Challenge? { ChallengePlanner.activeChallenge(in: challenges, today: today) }
+    var upcomingChallenge: Challenge? { ChallengePlanner.upcomingChallenge(in: challenges, today: today) }
+    /// Rules in effect: the active challenge's (locked at start), or the defaults.
+    var rules: ChallengeRules { activeChallenge?.rules ?? ChallengeRules() }
+    private var countingPolicy: CountingPolicy { CountingPolicy(rules: rules) }
 
     init(profile: UserProfile, container: AppContainer, calendar: Calendar = .disciplineCalendar()) {
         self.userId = profile.id
@@ -47,6 +54,7 @@ final class HabitsStore {
         self.habitRepository = container.habits
         self.completionRepository = container.completions
         self.accountabilityRepository = container.accountability
+        self.challengeRepository = container.challenges
         self.sync = container.sync
     }
 
@@ -57,11 +65,12 @@ final class HabitsStore {
     }
 
     var todayCommitments: [TodayCommitment] {
-        TodayCommitments.build(habits: activeHabits, completions: completions, today: today, condition: condition, calendar: calendar)
+        TodayCommitments.build(habits: activeHabits, completions: completions, today: today, condition: condition,
+                               policy: countingPolicy, calendar: calendar)
     }
 
     func weekSummary(for habit: Habit) -> (achieved: Int, target: Int)? {
-        HabitSchedule.weekSummary(for: habit, containing: today, completions: completions, calendar: calendar)
+        HabitSchedule.weekSummary(for: habit, containing: today, completions: completions, policy: countingPolicy, calendar: calendar)
     }
 
     func completions(for habit: Habit) -> [HabitCompletion] {
@@ -69,7 +78,7 @@ final class HabitsStore {
     }
 
     func progress(for habit: Habit) -> HabitProgress? {
-        HabitSchedule.progress(for: habit, on: today, completions: completions, calendar: calendar)
+        HabitSchedule.progress(for: habit, on: today, completions: completions, policy: countingPolicy, calendar: calendar)
     }
 
     func requirement(for habit: Habit) -> CompletionRequirement {
@@ -154,6 +163,17 @@ final class HabitsStore {
                 self?.loadState = .failed(AppError.from(error))
             }
         })
+        listeners.append(Task { [weak self, challengeRepository, userId] in
+            do {
+                for try await challenges in challengeRepository.observeChallenges(userId: userId) {
+                    self?.challenges = challenges
+                    self?.completeFinishedChallenges()
+                    self?.recomputeStreak()
+                }
+            } catch {
+                self?.loadState = .failed(AppError.from(error))
+            }
+        })
     }
 
     func restart() {
@@ -173,16 +193,67 @@ final class HabitsStore {
         restart()
     }
 
+    /// With an active challenge, the streak covers only its habits and days, under its rules.
     private func recomputeStreak() {
+        let historyStart = today.adding(days: -Self.historyDays, calendar: calendar)
+        let scopedHabits: [Habit]
+        let from: DayKey
+        if let challenge = activeChallenge {
+            scopedHabits = habits.filter { $0.challengeId == challenge.id }
+            from = max(challenge.startDate, historyStart)
+        } else {
+            scopedHabits = habits
+            from = historyStart
+        }
         streak = StreakCalculator.summarize(
-            habits: habits,
+            habits: scopedHabits,
             completions: completions,
             tasks: accountabilityTasks,
             rules: rules,
-            from: today.adding(days: -Self.historyDays, calendar: calendar),
+            from: from,
             today: today,
             calendar: calendar
         )
+    }
+
+    private func completeFinishedChallenges() {
+        for var challenge in ChallengePlanner.finishedChallenges(in: challenges, today: today) {
+            challenge.status = .completed
+            do {
+                try challengeRepository.save(challenge)
+            } catch {
+                Log.data.error("Couldn't complete challenge \(challenge.id, privacy: .public)")
+            }
+        }
+    }
+
+    var challengeProgress: ChallengeProgress? {
+        activeChallenge.map { ChallengePlanner.progress(of: $0, days: streak.days, today: today, calendar: calendar) }
+    }
+
+    func habits(in challenge: Challenge) -> [Habit] {
+        habits.filter { $0.challengeId == challenge.id }
+    }
+
+    // MARK: Challenges
+
+    /// Starts a challenge the participant has explicitly accepted. Saves the challenge first,
+    /// then its habits (new template habits and adopted existing ones).
+    func startChallenge(_ plan: ChallengePlan) throws {
+        try challengeRepository.save(plan.challenge)
+        for habit in plan.habits {
+            try habitRepository.save(habit)
+        }
+    }
+
+    /// Abandons a challenge. Its habits keep their history but stop being due after today.
+    func abandon(_ challenge: Challenge) throws {
+        var abandoned = challenge
+        abandoned.status = .abandoned
+        try challengeRepository.save(abandoned)
+        for habit in habits(in: challenge) where habit.isActive {
+            try archive(habit)
+        }
     }
 
     func resolution(for day: DayKey) -> DayResolution? {

@@ -19,6 +19,7 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                     header
                     SyncStatusBanner(monitor: store.sync)
+                    challengeSection
                     content
                 }
                 .padding(Theme.Spacing.md)
@@ -27,6 +28,11 @@ struct DashboardView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: String.self) { habitId in
                 HabitDetailView(habitId: habitId)
+            }
+            .navigationDestination(for: DashboardRoute.self) { route in
+                switch route {
+                case .challenge: ChallengeHubView()
+                }
             }
             .sheet(isPresented: $creatingHabit) {
                 HabitEditorView(habit: nil, userId: store.userId, today: store.today, calendar: store.calendar)
@@ -64,6 +70,41 @@ struct DashboardView: View {
                 todaySection
                 weeklySection
             }
+        }
+    }
+
+    // MARK: Challenge
+
+    @ViewBuilder
+    private var challengeSection: some View {
+        if let challenge = store.activeChallenge ?? store.upcomingChallenge {
+            NavigationLink(value: DashboardRoute.challenge) {
+                ChallengeBanner(challenge: challenge,
+                                progress: store.activeChallenge?.id == challenge.id ? store.challengeProgress : nil)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("dashboard.challenge")
+        } else if !store.activeHabits.isEmpty {
+            NavigationLink(value: DashboardRoute.challenge) {
+                HStack(spacing: Theme.Spacing.sm) {
+                    Image(systemName: "flag.checkered")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(Theme.Palette.accent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Start a challenge")
+                            .font(Theme.Typography.headline)
+                            .foregroundStyle(Theme.Palette.textPrimary)
+                        Text("Commit for a set number of days with rules you choose.")
+                            .font(Theme.Typography.caption)
+                            .foregroundStyle(Theme.Palette.textSecondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right").foregroundStyle(Theme.Palette.textTertiary)
+                }
+                .card()
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("dashboard.startChallenge")
         }
     }
 
@@ -189,7 +230,13 @@ struct DashboardView: View {
                 Text("Gym 4×/week · Running 2×/week · Reading 100 pages/week · Cold plunge 3×/week")
                     .font(Theme.Typography.callout)
                     .foregroundStyle(Theme.Palette.textSecondary)
-                Button("Add these habits") {
+                NavigationLink(value: DashboardRoute.challenge) {
+                Label("Or start the 75 Day Discipline challenge", systemImage: "flame.fill")
+                    .font(Theme.Typography.callout.weight(.semibold))
+            }
+            .accessibilityIdentifier("dashboard.emptyChallenge")
+
+            Button("Add these habits") {
                     do {
                         try store.addStarterHabits()
                     } catch {
@@ -202,6 +249,10 @@ struct DashboardView: View {
             .card()
         }
     }
+}
+
+enum DashboardRoute: Hashable {
+    case challenge
 }
 
 // MARK: - Rows

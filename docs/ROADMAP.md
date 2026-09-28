@@ -34,7 +34,7 @@ The project was established from scratch.
 | 6 | Accountability | ✅ | Skip → consequence preview → explicit accept (nothing recorded on "Go back"), per-habit push-up consequence (10–100), task lifecycle in core + server, scheduled server-side expiry, dashboard accountability section with countdown |
 | 7 | Exercise CV | ✅ | Front camera + Vision body pose, calibration gate, `ExerciseVerificationEngine` protocol, push-up state machine with faults (core + synthetic-pose tests), live counter UI with skeleton/feedback, session summary, `onExerciseSessionCreated` server resolution using server receive time |
 | 8 | Streak engine | ✅ | DayResolver (feasibility rule for weekly targets, pending handling for verification/accountability, requireAllHabits), StreakCalculator (break/pause), milestones, streak page with 6-week calendar and per-day explanation, dashboard streak chip, history-preserving archive |
-| 9 | Challenges | ⏳ | Challenge builder, rules configuration, 75-day template, rule locking |
+| 9 | Challenges | ✅ | 75 Day Discipline template + custom challenges (adopt existing habits), participant rules (streak, require-all, skipping + consequence, missed-day, uncertain policy), locked study parameters, explicit acceptance, rule lock, challenge-scoped streak/rules, day X of Y + adherence, auto-complete, abandon |
 | 10 | Research | ⏳ | Server-side condition assignment, `dailyRecords` writer, researcher dashboard, anonymous CSV export |
 | 11 | Polish | ⏳ | Notifications, offline/sync indicators, animations, accessibility, performance |
 | 12 | Testing & docs | ⏳ | UI tests (demo mode), rules unit tests (emulator), AI failure tests, thesis technical documentation |
