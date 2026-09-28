@@ -244,11 +244,11 @@ struct ExerciseSummaryView: View {
                 if session.invalidReps > 0 {
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         SectionEyebrow(title: "Not counted")
-                        ForEach(faultCounts, id: \.0) { fault, count in
+                        ForEach(faultCounts) { entry in
                             HStack {
-                                Text(fault.message)
+                                Text(entry.fault.message)
                                 Spacer()
-                                Text("\(count)").monospacedDigit()
+                                Text("\(entry.count)").monospacedDigit()
                             }
                             .font(Theme.Typography.callout)
                             .foregroundStyle(Theme.Palette.textPrimary)
@@ -272,9 +272,17 @@ struct ExerciseSummaryView: View {
         .background(Theme.Palette.background.ignoresSafeArea())
     }
 
-    private var faultCounts: [(RepetitionFault, Int)] {
+    private struct FaultCount: Identifiable {
+        let fault: RepetitionFault
+        let count: Int
+        var id: RepetitionFault { fault }
+    }
+
+    private var faultCounts: [FaultCount] {
         let faults = session.repetitions.compactMap(\.fault)
-        return Dictionary(grouping: faults, by: { $0 }).map { ($0.key, $0.value.count) }.sorted { $0.1 > $1.1 }
+        return Dictionary(grouping: faults, by: { $0 })
+            .map { FaultCount(fault: $0.key, count: $0.value.count) }
+            .sorted { $0.count > $1.count }
     }
 
     private func row(_ title: String, _ value: String, last: Bool = false) -> some View {

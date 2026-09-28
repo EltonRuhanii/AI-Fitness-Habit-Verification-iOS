@@ -65,6 +65,16 @@ jobs:
             -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO | tee build.log | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" build.log
+      - name: Report compiler errors as annotations
+        if: failure()
+        run: |
+          # Workflow-command annotations are readable via the public API, unlike raw logs.
+          grep -E ": error: " build.log | sed -E 's#^.*/(Discipline|Packages)/#\1/#' | sort -u | head -40 > errors.txt || true
+          if [ -s errors.txt ]; then
+            echo "::error title=Compiler errors::$(sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g' errors.txt)"
+          else
+            echo "::error title=Build failed::$(grep -E 'error|failed|FAILED' build.log | tail -20 | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')"
+          fi
       - name: Upload build log
         if: failure()
         uses: actions/upload-artifact@v4

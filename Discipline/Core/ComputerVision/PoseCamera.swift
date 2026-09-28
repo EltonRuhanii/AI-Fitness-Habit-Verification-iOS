@@ -41,7 +41,9 @@ final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, 
     ]
 
     override init() {
-        (frames, continuation) = AsyncStream.makeStream(of: PoseFrame.self, bufferingPolicy: .bufferingNewest(1))
+        let stream = AsyncStream.makeStream(of: PoseFrame.self, bufferingPolicy: .bufferingNewest(1))
+        frames = stream.stream
+        continuation = stream.continuation
         super.init()
     }
 

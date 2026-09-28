@@ -29,10 +29,11 @@ struct AspectFillMapping {
     let viewSize: CGSize
 
     func point(x: Double, y: Double) -> CGPoint {
+        let viewWidth = Double(viewSize.width), viewHeight = Double(viewSize.height)
         let imageWidth = imageAspect, imageHeight = 1.0
-        let scale = max(viewSize.width / imageWidth, viewSize.height / imageHeight)
-        let offsetX = (viewSize.width - imageWidth * scale) / 2
-        let offsetY = (viewSize.height - imageHeight * scale) / 2
+        let scale = max(viewWidth / imageWidth, viewHeight / imageHeight)
+        let offsetX = (viewWidth - imageWidth * scale) / 2
+        let offsetY = (viewHeight - imageHeight * scale) / 2
         return CGPoint(x: offsetX + x * imageWidth * scale, y: offsetY + (1 - y) * imageHeight * scale)
     }
 }
