@@ -2,10 +2,14 @@ import SwiftUI
 
 /// Signed-out entry point.
 struct WelcomeView: View {
-    @Environment(AppContainer.self) private var container
-    @Environment(SessionStore.self) private var session
-    @State private var viewModel: AuthViewModel?
+    // Created eagerly in init (never optional): navigation destinations are captured when
+    // the stack is built, so a lazily assigned view model would still be nil there.
+    @State private var viewModel: AuthViewModel
     @State private var path: [AuthRoute] = []
+
+    init(auth: AuthenticationService, session: SessionStore) {
+        _viewModel = State(initialValue: AuthViewModel(auth: auth, session: session))
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -19,18 +23,11 @@ struct WelcomeView: View {
             .padding(.bottom, Theme.Spacing.lg)
             .screenBackground()
             .navigationDestination(for: AuthRoute.self) { route in
-                if let viewModel {
-                    switch route {
-                    case .signIn: SignInView(viewModel: viewModel, path: $path)
-                    case .register: RegisterView(viewModel: viewModel)
-                    case .resetPassword: PasswordResetView(viewModel: viewModel)
-                    }
+                switch route {
+                case .signIn: SignInView(viewModel: viewModel, path: $path)
+                case .register: RegisterView(viewModel: viewModel)
+                case .resetPassword: PasswordResetView(viewModel: viewModel)
                 }
-            }
-        }
-        .onAppear {
-            if viewModel == nil {
-                viewModel = AuthViewModel(auth: container.auth, session: session)
             }
         }
     }
@@ -67,7 +64,7 @@ struct WelcomeView: View {
     }
 
     private func navigate(to route: AuthRoute) {
-        viewModel?.clearMessages()
+        viewModel.clearMessages()
         path.append(route)
     }
 }
@@ -95,8 +92,9 @@ private struct FeatureRow: View {
 }
 
 #Preview {
-    WelcomeView()
-        .environment(AppContainer.preview)
-        .environment(SessionStore(auth: AppContainer.preview.auth, users: AppContainer.preview.users))
-        .preferredColorScheme(.dark)
+    WelcomeView(
+        auth: AppContainer.preview.auth,
+        session: SessionStore(auth: AppContainer.preview.auth, users: AppContainer.preview.users)
+    )
+    .preferredColorScheme(.dark)
 }

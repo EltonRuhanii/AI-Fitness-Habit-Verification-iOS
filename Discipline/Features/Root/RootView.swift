@@ -22,7 +22,7 @@ struct RootView: View {
         case .loading:
             LaunchView()
         case .signedOut:
-            WelcomeView()
+            WelcomeView(auth: container.auth, session: session)
         case .onboarding:
             OnboardingView()
         case .ready:
