@@ -1,0 +1,158 @@
+rules_version = '2';
+
+// Discipline — Firestore security rules.
+//
+// Principles:
+//  * Every private document carries `userId`; only that user can read it.
+//  * Research-relevant outcomes (verified / rejected / uncertain / resolved / failed) are
+//    written ONLY by Cloud Functions (Admin SDK bypasses these rules). A client can never
+//    mark its own evidence as verified.
+//  * The experimental condition and participant ID are immutable once written.
+//  * Verification results and exercise sessions are append-only.
+//  * Research records are readable by researchers (custom claim `researcher: true`) only.
+//  * Date fields are never compared for equality: Swift `Date` is a Double, so a
+//    Timestamp -> Date -> Timestamp round trip can differ by a nanosecond.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    function signedIn() { return request.auth != null; }
+    function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
+    function isResearcher() { return signedIn() && request.auth.token.researcher == true; }
+    function ownsExisting() { return signedIn() && resource.data.userId == request.auth.uid; }
+    function ownsIncoming() { return signedIn() && request.resource.data.userId == request.auth.uid; }
+    function idMatches(id) { return request.resource.data.id == id; }
+    function unchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // ---------- users ----------
+    match /users/{uid} {
+      allow read: if isSelf(uid);
+      allow create: if isSelf(uid)
+        && idMatches(uid)
+        && request.resource.data.participantId is string
+        && request.resource.data.participantId.matches('^P-[A-Z2-9]{10}$')
+        && request.resource.data.trackingCondition in ['manual', 'aiAssisted'];
+      allow update: if isSelf(uid)
+        && unchanged(['id', 'participantId', 'trackingCondition']);
+      allow delete: if isSelf(uid);
+    }
+
+    // ---------- habits ----------
+    // Habits are archived (isActive = false), never deleted by the client, so research
+    // history stays intact. Account deletion removes them server-side.
+    match /habits/{habitId} {
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming() && idMatches(habitId);
+      allow update: if ownsExisting() && ownsIncoming()
+        && unchanged(['id', 'userId']);
+      allow delete: if false;
+    }
+
+    // ---------- habit completions ----------
+    function clientSettableStatuses() {
+      return ['pending', 'selfReported', 'pendingVerification', 'skipped', 'accountabilityRequired'];
+    }
+    // Statuses a client may still move away from. Server-decided outcomes are final for the client.
+    function clientMutableStatuses() {
+      return ['pending', 'pendingVerification', 'rejected', 'uncertain', 'skipped'];
+    }
+    // In the AI-assisted condition, evidence-required habits cannot be self-reported.
+    function maySelfReport(data) {
+      return data.status != 'selfReported'
+        || myProfile().trackingCondition == 'manual'
+        || get(/databases/$(database)/documents/habits/$(data.habitId)).data.requiresEvidence == false;
+    }
+    match /habitCompletions/{completionId} {
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming()
+        && idMatches(completionId)
+        && request.resource.data.status in clientSettableStatuses()
+        && request.resource.data.trackingCondition == myProfile().trackingCondition
+        && !('verificationId' in request.resource.data)
+        && maySelfReport(request.resource.data);
+      allow update: if ownsExisting() && ownsIncoming()
+        && resource.data.status in clientMutableStatuses()
+        && request.resource.data.status in clientSettableStatuses()
+        && unchanged(['id', 'userId', 'habitId', 'day', 'trackingCondition', 'clientRequestId', 'verificationId'])
+        && maySelfReport(request.resource.data);
+      allow delete: if false;
+    }
+
+    // ---------- evidence ----------
+    match /evidence/{evidenceId} {
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming()
+        && idMatches(evidenceId)
+        && request.resource.data.verificationStatus == 'pending'
+        && !('verificationResultId' in request.resource.data)
+        && request.resource.data.storagePath == 'evidence/' + request.auth.uid + '/' + evidenceId + '.jpg';
+      allow update: if false; // verification fields are written by the backend only
+      allow delete: if ownsExisting();
+    }
+
+    // ---------- verification results (immutable, backend-only) ----------
+    match /verifications/{verificationId} {
+      allow read: if ownsExisting();
+      allow write: if false;
+    }
+
+    // ---------- accountability ----------
+    match /accountabilityTasks/{taskId} {
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming()
+        && idMatches(taskId)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.progress == 0
+        && request.resource.data.target is int
+        && request.resource.data.target > 0
+        && request.resource.data.target <= 150;
+      // The client may start a task; completion/failure is decided server-side from
+      // the recorded exercise sessions.
+      allow update: if ownsExisting() && ownsIncoming()
+        && resource.data.status in ['pending', 'inProgress']
+        && unchanged(['id', 'userId', 'sourceHabitId', 'sourceCompletionId', 'day', 'type', 'target', 'completedAt'])
+        && request.resource.data.deadline <= resource.data.deadline
+        && request.resource.data.status in ['pending', 'inProgress'];
+      allow delete: if false;
+    }
+
+    // Exercise sessions are written once, at the end of a camera session.
+    match /exerciseSessions/{sessionId} {
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming()
+        && idMatches(sessionId)
+        && request.resource.data.validReps is int && request.resource.data.validReps >= 0
+        && request.resource.data.invalidReps is int && request.resource.data.invalidReps >= 0
+        && exists(/databases/$(database)/documents/accountabilityTasks/$(request.resource.data.accountabilityTaskId))
+        && get(/databases/$(database)/documents/accountabilityTasks/$(request.resource.data.accountabilityTaskId)).data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ---------- challenges ----------
+    // Rules are locked once a challenge is active so they can't change mid-study.
+    match /challenges/{challengeId} {
+      allow read: if signedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && idMatches(challengeId);
+      allow update: if signedIn()
+        && resource.data.ownerId == request.auth.uid
+        && unchanged(['id', 'ownerId'])
+        && (resource.data.status == 'draft'
+            || unchanged(['rules', 'startDate', 'endDate', 'durationDays']));
+      allow delete: if false;
+    }
+
+    // ---------- research records (server-written) ----------
+    match /dailyRecords/{recordId} {
+      allow read: if isResearcher()
+        || (signedIn() && resource.data.participantId == myProfile().participantId);
+      allow write: if false;
+    }
+  }
+}

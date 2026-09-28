@@ -1,0 +1,109 @@
+# Discipline
+
+**AI-assisted fitness habit tracking, accountability and verification for iOS.**
+
+Discipline is the practical implementation for a university thesis investigating:
+
+> *Does AI-assisted evidence verification improve user adherence and accountability compared with conventional self-reported habit tracking?*
+
+Participants commit to habits (e.g. gym 4×/week, reading 100 pages/week). Each day, every due commitment must be **completed** (self-reported or with verified evidence) or **explicitly skipped** and resolved through an agreed **accountability task** (e.g. 50 push-ups counted by on-device computer vision). Resolved days build a streak. The app records behavioral events so that the **manual** and **AI-assisted** conditions can be compared.
+
+> ⚠️ Automated verification is an *assessment against defined criteria*, not proof. The app never claims otherwise.
+
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for implementation status and architecture decisions.
+
+---
+
+## Repository layout
+
+```text
+Discipline.xcodeproj         Xcode 16 project (synchronized folders — no per-file entries)
+Discipline/                  iOS app target
+  App/                       Entry point, composition root (AppContainer)
+  Core/                      Configuration, design system, Firebase bootstrap, utilities
+  Services/                  Protocols + Firebase and demo implementations
+  Features/                  One folder per feature (views + view models)
+  Resources/                 Asset catalog
+Packages/DisciplineCore/     Platform-independent domain logic + unit tests
+firebase/                    Firestore/Storage security rules, indexes, (Phase 5+) Cloud Functions
+docs/                        Roadmap and technical/thesis documentation
+.github/workflows/ci.yml     Core tests on Linux, iOS build on macOS
+```
+
+## Requirements
+
+- Xcode 16.2 or later, iOS 17 or later
+- A Firebase project (optional, since the app runs in demo mode without one)
+
+## Running the app
+
+1. Open `Discipline.xcodeproj`. Xcode resolves the Firebase Swift package automatically.
+2. Select the **Discipline** scheme and an iPhone simulator, then press Run.
+
+Without `GoogleService-Info.plist`, the app starts in **demo mode**: local on-device services with a visible "DEMO MODE" badge. Nothing is sent to any server.
+
+Launch arguments (Scheme → Run → Arguments):
+
+| Argument | Effect |
+|---|---|
+| `-demoMode` | Force demo mode even when Firebase is configured |
+| `-resetLocalState` | Wipe demo data and preferences on launch (used by UI tests) |
+| `-seedDemoData` | Populate demo history (Phase 12) |
+
+## Firebase setup
+
+1. Create a Firebase project and add an iOS app with bundle ID `com.eltonruhani.discipline`.
+2. Download `GoogleService-Info.plist` into `Discipline/Resources/`. It is **git-ignored**, so never commit it.
+3. Enable **Authentication → Email/Password**.
+4. Create a **Firestore** database and a **Storage** bucket.
+5. Deploy rules and indexes:
+
+   ```bash
+   cd firebase
+   npx firebase-tools deploy --only firestore:rules,firestore:indexes,storage
+   ```
+
+### Security model (summary)
+
+- Users can read only documents whose `userId` is their own uid.
+- Verification outcomes (`verified`, `rejected`, `uncertain`, `resolved`, `failed`) can be written **only by Cloud Functions**. A client cannot mark its own evidence as verified.
+- In the AI-assisted condition, evidence-required habits cannot be self-reported (enforced in rules).
+- The participant's experimental condition and participant ID are immutable.
+- Verification results and exercise sessions are append-only.
+- Evidence photos live under `evidence/{uid}/`. They are private and immutable, and nothing is publicly readable.
+- Research records (`dailyRecords`) are server-written and readable only by researchers (custom claim `researcher: true`).
+
+Full rules: [`firebase/firestore.rules`](firebase/firestore.rules), [`firebase/storage.rules`](firebase/storage.rules).
+
+## Testing
+
+```bash
+# Domain logic (runs on macOS or Linux)
+swift test --package-path Packages/DisciplineCore
+```
+
+On Windows, without Xcode:
+
+```bash
+docker run --rm -v "$PWD:/repo" -w /repo swift:6.1 swift test --package-path Packages/DisciplineCore
+```
+
+## Data model (Firestore)
+
+| Collection | Key | Written by | Purpose |
+|---|---|---|---|
+| `users` | auth uid | client | Profile, pseudonymous `participantId`, `trackingCondition` |
+| `habits` | uuid | client | Commitments and their verification requirements |
+| `habitCompletions` | uuid | client + functions | One occurrence with a 10-state status, method and condition |
+| `challenges` | uuid | client | Duration and rules (locked once active) |
+| `evidence` | uuid | client | Photo metadata; image in Storage |
+| `verifications` | uuid | functions | Immutable AI verification attempts |
+| `accountabilityTasks` | uuid | client + functions | Consequences of skipping |
+| `exerciseSessions` | uuid | client | Immutable camera sessions with per-rep events |
+| `dailyRecords` | `{participantId}_{day}` | functions | Research snapshot per participant-day |
+
+## Known limitations
+
+- **On-device exercise counts are client-reported.** Pose estimation runs on the participant's phone, so a modified client could forge a session. Rules restrict *who* can write, not whether the reps really happened. App Check is planned as a mitigation. The thesis should treat this as a threat-to-validity.
+- The experimental condition is currently assigned randomly on the client and then locked by rules. Phase 10 moves assignment to a Cloud Function using balanced block randomization.
+- AI photo verification can only assess what is visible in an image. It cannot establish that the participant performed the activity.

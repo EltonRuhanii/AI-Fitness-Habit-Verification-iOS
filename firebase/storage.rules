@@ -1,0 +1,26 @@
+rules_version = '2';
+
+// Evidence photos are private to their owner. There are no public reads; the
+// verification Cloud Function reads images with the Admin SDK.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /evidence/{uid}/{fileName} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        // An upload over an existing object is evaluated as `create`, so immutability
+        // must be enforced here: only allow writing to a path that is still empty.
+        && resource == null
+        && fileName.matches('^[A-Za-z0-9-]+\\.jpg$')
+        && request.resource.contentType == 'image/jpeg'
+        && request.resource.size < 8 * 1024 * 1024;
+      // Evidence is immutable once uploaded; resubmission creates a new file.
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

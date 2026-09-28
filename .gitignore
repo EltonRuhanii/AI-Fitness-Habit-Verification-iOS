@@ -1,0 +1,32 @@
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# SwiftPM
+.build/
+.swiftpm/
+Package.resolved.lock
+
+# Secrets — never commit these
+GoogleService-Info.plist
+**/functions/.env*
+**/functions/.secret.local
+*.p8
+*.p12
+
+# Firebase
+firebase/functions/node_modules/
+firebase/functions/lib/
+firebase/.firebase/
+firebase-debug.log
+firestore-debug.log
+
+# OS
+.DS_Store
+Thumbs.db
+firebase/tests/node_modules/
