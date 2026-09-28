@@ -28,12 +28,12 @@ The project was established from scratch.
 |---|---|---|---|
 | 1 | Foundation | ✅ | Project, `DisciplineCore` models + tests, design system, DI container, Firebase bootstrap, auth (register/login/logout/reset/persistent), onboarding + rules consent, tab navigation, profile with sign-out and account deletion, Firestore and Storage security rules, CI |
 | 2 | Habits | ✅ | Habit/completion repositories (Firestore + demo, local-first with sync monitor), create/edit/archive, self-report completion flow, daily/weekly/custom targets and monthly adherence in core + tests, idempotent completion IDs, starter template |
-| 3 | Dashboard | 🔨 | ✅ Today's commitments, weekly goal bars, sync status · ⏳ streak display (Phase 8), accountability items (Phase 6), recent activity |
+| 3 | Dashboard | ✅ | Today's commitments, weekly goals, sync status, accountability section, streak chip |
 | 4 | Photo evidence | ✅ | Camera (permission handling) + PhotosPicker, preview/retake, downscale + EXIF/GPS stripping, private Storage upload, atomic evidence + pending completion |
 | 5 | AI verification | ✅ | `verifyEvidence` Cloud Function (Claude, structured output, refusal fallback, secret key), shared criteria catalog, deterministic policy in Swift + TS with shared test vectors, immutable history incl. failures, retry, result UI, on-device demo verifier |
 | 6 | Accountability | ✅ | Skip → consequence preview → explicit accept (nothing recorded on "Go back"), per-habit push-up consequence (10–100), task lifecycle in core + server, scheduled server-side expiry, dashboard accountability section with countdown |
 | 7 | Exercise CV | ✅ | Front camera + Vision body pose, calibration gate, `ExerciseVerificationEngine` protocol, push-up state machine with faults (core + synthetic-pose tests), live counter UI with skeleton/feedback, session summary, `onExerciseSessionCreated` server resolution using server receive time |
-| 8 | Streak engine | ⏳ | Day resolver (feasibility rule for weekly targets), streak calculation, calendar, milestones |
+| 8 | Streak engine | ✅ | DayResolver (feasibility rule for weekly targets, pending handling for verification/accountability, requireAllHabits), StreakCalculator (break/pause), milestones, streak page with 6-week calendar and per-day explanation, dashboard streak chip, history-preserving archive |
 | 9 | Challenges | ⏳ | Challenge builder, rules configuration, 75-day template, rule locking |
 | 10 | Research | ⏳ | Server-side condition assignment, `dailyRecords` writer, researcher dashboard, anonymous CSV export |
 | 11 | Polish | ⏳ | Notifications, offline/sync indicators, animations, accessibility, performance |

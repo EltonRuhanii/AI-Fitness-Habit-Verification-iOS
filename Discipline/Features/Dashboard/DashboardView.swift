@@ -81,6 +81,15 @@ struct DashboardView: View {
                     .foregroundStyle(Theme.Palette.textPrimary)
             }
             Spacer()
+            if store.streak.current > 0 {
+                Label("\(store.streak.current)", systemImage: "flame.fill")
+                    .font(Theme.Typography.headline.monospacedDigit())
+                    .foregroundStyle(Theme.Palette.accent)
+                    .padding(.horizontal, 12)
+                    .frame(height: 44)
+                    .background(Capsule().fill(Theme.Palette.accent.opacity(0.14)))
+                    .accessibilityLabel("\(store.streak.current) day streak")
+            }
             Button {
                 creatingHabit = true
             } label: {

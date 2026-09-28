@@ -144,6 +144,19 @@ Front camera (AVFoundation, 720p) → Apple Vision VNDetectHumanBodyPoseRequest 
 - **Tested:** the state machine is unit-tested with synthetic poses covering valid, partial, bounce, sagging, noise and tracking-loss cases (`PushUpEngineTests`).
 - **Anti-cheating:** the live camera, continuous tracking, the calibration gate and the per-rep criteria make simple cheating harder. The server ignores client clocks for deadlines. A modified app could still forge a session, as listed under limitations.
 
+### Streaks and daily success
+
+`DayResolver` (in DisciplineCore, versioned `day-resolver-v1`) decides every day's outcome, and `StreakCalculator` folds those outcomes into streaks.
+
+- **A day is successful** when every *required* commitment due that day is resolved. That means completed, verified (or uncertain, if the challenge counts it), or skipped with its accountability task completed.
+- **Daily habits** are due every day, and **set-day habits** on their weekdays.
+- **Weekly session targets** use a *feasibility rule*: a session becomes due only when the remaining need ≥ the remaining days in the week. **Weekly amounts** such as pages are due on the last day of the week.
+- **On-track days:** a day with commitments in effect but none due counts as successful.
+- **Pending:** today, evidence awaiting verification, and skips with an open task are pending. Pending never breaks a streak, and the day is re-evaluated when it resolves.
+- **Streak rules:** successful +1. Failed resets to 0, or holds under `pauseStreak`. Rest and pending days are neutral.
+- **Milestones** (3, 7, 14, 30, 60, 75, 100) are display-only and never feed into research measures.
+- **Archiving** a habit sets its end date, so it keeps its history but stops being due.
+
 ### Security model (summary)
 
 - Users can read only documents whose `userId` is their own uid.

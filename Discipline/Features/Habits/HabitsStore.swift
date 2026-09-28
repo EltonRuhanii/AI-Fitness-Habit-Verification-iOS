@@ -13,8 +13,9 @@ final class HabitsStore {
         case failed(AppError)
     }
 
-    /// How far back completions are loaded (covers the current and previous month).
-    static let historyDays = 62
+    /// How far back completions are loaded. Long enough for a 75-day challenge's streak;
+    /// longer history is persisted server-side as daily research records (Phase 10).
+    static let historyDays = 120
 
     private(set) var habits: [Habit] = []
     private(set) var completions: [HabitCompletion] = []
@@ -23,6 +24,8 @@ final class HabitsStore {
     private(set) var today: DayKey
     /// Incremented on every successful completion; drives success haptics.
     private(set) var completionEvents = 0
+    /// Day outcomes and streaks over the loaded history, recomputed whenever data changes.
+    private(set) var streak: StreakSummary = .empty
 
     let calendar: Calendar
     let userId: String
@@ -125,6 +128,7 @@ final class HabitsStore {
                 for try await habits in habitRepository.observeHabits(userId: userId) {
                     self?.habits = habits
                     self?.markLoaded()
+                    self?.recomputeStreak()
                 }
             } catch {
                 self?.loadState = .failed(AppError.from(error))
@@ -134,6 +138,7 @@ final class HabitsStore {
             do {
                 for try await completions in completionRepository.observeCompletions(userId: userId, from: from) {
                     self?.completions = completions
+                    self?.recomputeStreak()
                 }
             } catch {
                 self?.loadState = .failed(AppError.from(error))
@@ -143,6 +148,7 @@ final class HabitsStore {
             do {
                 for try await tasks in accountabilityRepository.observeTasks(userId: userId) {
                     self?.accountabilityTasks = tasks
+                    self?.recomputeStreak()
                 }
             } catch {
                 self?.loadState = .failed(AppError.from(error))
@@ -167,6 +173,22 @@ final class HabitsStore {
         restart()
     }
 
+    private func recomputeStreak() {
+        streak = StreakCalculator.summarize(
+            habits: habits,
+            completions: completions,
+            tasks: accountabilityTasks,
+            rules: rules,
+            from: today.adding(days: -Self.historyDays, calendar: calendar),
+            today: today,
+            calendar: calendar
+        )
+    }
+
+    func resolution(for day: DayKey) -> DayResolution? {
+        streak.days.first { $0.resolution.day == day }?.resolution
+    }
+
     private func markLoaded() {
         if loadState != .loaded { loadState = .loaded }
     }
@@ -182,9 +204,14 @@ final class HabitsStore {
         try habitRepository.save(habit)
     }
 
+    /// Archives from today on: the habit keeps its history but is no longer due.
     func archive(_ habit: Habit) throws {
         var archived = habit
         archived.isActive = false
+        let yesterday = today.adding(days: -1, calendar: calendar)
+        if archived.endDate.map({ $0 > yesterday }) ?? true {
+            archived.endDate = yesterday
+        }
         try habitRepository.save(archived)
     }
 
