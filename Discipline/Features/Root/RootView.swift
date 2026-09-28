@@ -25,8 +25,10 @@ struct RootView: View {
             WelcomeView(auth: container.auth, session: session)
         case .onboarding:
             OnboardingView()
-        case .ready:
-            MainTabView()
+        case .ready(let profile):
+            // Identity keyed by user so switching accounts rebuilds all per-user state.
+            MainTabView(profile: profile, container: container)
+                .id(profile.id)
         case .failed(let error):
             LaunchErrorView(error: error) { session.retry() }
         }
