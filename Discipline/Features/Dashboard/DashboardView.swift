@@ -231,9 +231,7 @@ private struct CommitmentRow: View {
     }
 
     /// A weekly session habit already logged today can't be logged again until tomorrow.
-    private var canActToday: Bool {
-        commitment.requirement == .evidence || commitment.habit.unit != .sessions || store.canLogSession(for: commitment.habit)
-    }
+    private var canActToday: Bool { store.canLog(commitment.habit) }
 
     private var actionSymbol: String {
         if commitment.requirement == .evidence { return "camera.fill" }

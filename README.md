@@ -63,6 +63,44 @@ Launch arguments (Scheme → Run → Arguments):
    npx firebase-tools deploy --only firestore:rules,firestore:indexes,storage
    ```
 
+### AI photo verification setup
+
+Evidence photos are assessed by the `verifyEvidence` Cloud Function. The provider API key is stored in Google Secret Manager and never reaches the app.
+
+1. Upgrade the Firebase project to the **Blaze** plan (required for Cloud Functions and outbound network calls).
+2. Store the Anthropic API key as a secret:
+
+   ```bash
+   cd firebase
+   npx firebase-tools functions:secrets:set ANTHROPIC_API_KEY
+   ```
+
+3. Deploy the function:
+
+   ```bash
+   npx firebase-tools deploy --only functions
+   ```
+
+The model defaults to `claude-opus-5`. To use a different Claude model, set the `VERIFICATION_MODEL` parameter when deploying (Firebase prompts for it, or add it to `firebase/functions/.env`). Every result records the model that produced it.
+
+#### How a photo is verified
+
+```text
+App: photo → downscale + strip EXIF/GPS → private Storage upload
+     → evidence + pending completion (one batch) → call verifyEvidence
+Function: ownership + attempt-limit checks → criteria for the habit's category
+     → vision model answers each criterion (structured JSON) + confidence + reason
+     → deterministic policy: confidence < threshold → uncertain;
+       all required criteria pass → verified; otherwise rejected
+     → immutable `verifications` record + evidence/completion status (one batch)
+```
+
+- **Criteria** live in one file, `Packages/DisciplineCore/Sources/DisciplineCore/Resources/verification-criteria.json`. The app shows them to the participant before submission, and the function build copies the same file.
+- **The model never returns a verdict**, only per-criterion answers. The verdict comes from a fixed policy implemented in Swift and TypeScript, and both run the same shared test cases (`Tests/DisciplineCoreTests/Fixtures/verification-policy-cases.json`).
+- **Failures are recorded, not hidden.** Timeouts, provider errors, refusals and malformed output produce a `verifications` record with `status: "error"` and an `errorCode`. The completion stays `pendingVerification` so the participant can retry, with at most 3 attempts per photo.
+- **Refusal fallback.** If the provider's safety classifier declines, the request is retried server-side on Anthropic's recommended fallback model (`fallbacks: "default"`). The served model is recorded.
+- **Demo mode** runs Apple's on-device image classifier through the same policy. It is labelled as a demo classifier and is not used for study data.
+
 ### Security model (summary)
 
 - Users can read only documents whose `userId` is their own uid.
@@ -80,6 +118,18 @@ Full rules: [`firebase/firestore.rules`](firebase/firestore.rules), [`firebase/s
 ```bash
 # Domain logic (runs on macOS or Linux)
 swift test --package-path Packages/DisciplineCore
+```
+
+Cloud Functions (verification pipeline, including AI failure cases):
+
+```bash
+cd firebase/functions && npm ci && npm test
+```
+
+Security rules (starts the Firebase emulators; requires Java):
+
+```bash
+cd firebase/tests && npm ci && npm test
 ```
 
 On Windows, without Xcode:
@@ -106,4 +156,5 @@ docker run --rm -v "$PWD:/repo" -w /repo swift:6.1 swift test --package-path Pac
 
 - **On-device exercise counts are client-reported.** Pose estimation runs on the participant's phone, so a modified client could forge a session. Rules restrict *who* can write, not whether the reps really happened. App Check is planned as a mitigation. The thesis should treat this as a threat-to-validity.
 - The experimental condition is currently assigned randomly on the client and then locked by rules. Phase 10 moves assignment to a Cloud Function using balanced block randomization.
-- AI photo verification can only assess what is visible in an image. It cannot establish that the participant performed the activity.
+- AI photo verification can only assess what is visible in an image. It cannot establish that the participant performed the activity, and it can't reliably detect a reused or borrowed photo. `captureSource` (camera vs. library) is recorded so this can be analysed.
+- Model outputs are not perfectly deterministic. Each result stores the provider, served model, prompt/criteria version and threshold so results stay attributable. Temperature can't be fixed on current Claude models.

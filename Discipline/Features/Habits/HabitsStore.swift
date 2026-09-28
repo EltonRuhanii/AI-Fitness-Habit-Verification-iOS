@@ -72,6 +72,16 @@ final class HabitsStore {
         CompletionPlanner.canLogSession(for: habit, on: today, completions: completions, calendar: calendar)
     }
 
+    /// Whether the habit's primary action is available today in this participant's condition.
+    func canLog(_ habit: Habit) -> Bool {
+        guard HabitSchedule.isScheduled(habit, on: today, calendar: calendar) else { return false }
+        if requirement(for: habit) == .evidence {
+            return CompletionPlanner.activeCompletions(for: habit, on: today, in: completions).count
+                < CompletionPlanner.maxSessionsPerDay(for: habit)
+        }
+        return habit.unit != .sessions || canLogSession(for: habit)
+    }
+
     // MARK: Loading
 
     func start() {
@@ -143,6 +153,27 @@ final class HabitsStore {
         }
     }
 
+    /// Builds (but does not save) a pending completion for photo evidence submitted today.
+    func makeEvidenceSubmission(for habit: Habit, evidenceId: String, quantity: Int) throws -> HabitCompletion {
+        do {
+            return try CompletionPlanner.makeEvidenceSubmission(
+                habit: habit,
+                day: today,
+                evidenceId: evidenceId,
+                quantity: quantity,
+                condition: condition,
+                existing: completions,
+                calendar: calendar
+            )
+        } catch let error as CompletionPlanError {
+            throw AppError.validation(error.message(for: habit))
+        }
+    }
+
+    func noteCompletionEvent() {
+        completionEvents += 1
+    }
+
     /// Logs a self-reported completion for today.
     func logSelfReport(_ habit: Habit, quantity: Int = 1) throws {
         do {
@@ -169,6 +200,7 @@ extension CompletionPlanError {
         case .alreadyCompletedToday: return "\(habit.name) is already logged for today."
         case .invalidQuantity: return "Enter an amount between 1 and 10,000."
         case .evidenceRequired: return "\(habit.name) needs photo evidence in your tracking mode."
+        case .evidenceNotApplicable: return "\(habit.name) is self-reported in your tracking mode."
         }
     }
 }

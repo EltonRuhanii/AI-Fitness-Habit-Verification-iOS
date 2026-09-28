@@ -29,8 +29,8 @@ The project was established from scratch.
 | 1 | Foundation | ✅ | Project, `DisciplineCore` models + tests, design system, DI container, Firebase bootstrap, auth (register/login/logout/reset/persistent), onboarding + rules consent, tab navigation, profile with sign-out and account deletion, Firestore and Storage security rules, CI |
 | 2 | Habits | ✅ | Habit/completion repositories (Firestore + demo, local-first with sync monitor), create/edit/archive, self-report completion flow, daily/weekly/custom targets and monthly adherence in core + tests, idempotent completion IDs, starter template |
 | 3 | Dashboard | 🔨 | ✅ Today's commitments, weekly goal bars, sync status · ⏳ streak display (Phase 8), accountability items (Phase 6), recent activity |
-| 4 | Photo evidence | ⏳ | Camera + PhotosPicker, preview/retake, JPEG compression, Storage upload, evidence records |
-| 5 | AI verification | ⏳ | `verifyEvidence` Cloud Function, per-category criteria catalog, structured JSON schema, confidence-threshold policy (core + tests), immutable history |
+| 4 | Photo evidence | ✅ | Camera (permission handling) + PhotosPicker, preview/retake, downscale + EXIF/GPS stripping, private Storage upload, atomic evidence + pending completion |
+| 5 | AI verification | ✅ | `verifyEvidence` Cloud Function (Claude, structured output, refusal fallback, secret key), shared criteria catalog, deterministic policy in Swift + TS with shared test vectors, immutable history incl. failures, retry, result UI, on-device demo verifier |
 | 6 | Accountability | ⏳ | Skip → consequence preview → explicit accept, task lifecycle, deadline expiry |
 | 7 | Exercise CV | ⏳ | Camera pipeline, Vision body pose, calibration, `ExerciseVerificationEngine` protocol, push-up state machine (core + tests), live UI, session storage |
 | 8 | Streak engine | ⏳ | Day resolver (feasibility rule for weekly targets), streak calculation, calendar, milestones |

@@ -210,6 +210,38 @@ final class CompletionPlannerTests: XCTestCase {
         XCTAssertEqual(items[0].requirement, .evidence)
     }
 
+    func testEvidenceSubmissionOnlyInAIAssistedCondition() throws {
+        let gym = habit(evidence: true)
+        let submission = try CompletionPlanner.makeEvidenceSubmission(habit: gym, day: day, evidenceId: "e1",
+                                                                      condition: .aiAssisted, existing: [], calendar: calendar)
+        XCTAssertEqual(submission.status, .pendingVerification)
+        XCTAssertEqual(submission.method, .photoVerification)
+        XCTAssertEqual(submission.evidenceId, "e1")
+        XCTAssertEqual(submission.id, "h_2026-09-28_0")
+
+        XCTAssertThrowsError(try CompletionPlanner.makeEvidenceSubmission(habit: gym, day: day, evidenceId: "e2",
+                                                                          condition: .manual, existing: [], calendar: calendar)) {
+            XCTAssertEqual($0 as? CompletionPlanError, .evidenceNotApplicable)
+        }
+        // A pending submission occupies the day's slot; a rejected one frees it with a new ID.
+        XCTAssertThrowsError(try CompletionPlanner.makeEvidenceSubmission(habit: gym, day: day, evidenceId: "e3",
+                                                                          condition: .aiAssisted, existing: [submission], calendar: calendar))
+        var rejected = submission
+        rejected.status = .rejected
+        let retry = try CompletionPlanner.makeEvidenceSubmission(habit: gym, day: day, evidenceId: "e4",
+                                                                 condition: .aiAssisted, existing: [rejected], calendar: calendar)
+        XCTAssertEqual(retry.id, "h_2026-09-28_1")
+    }
+
+    func testEvidenceSubmissionCarriesQuantityForPages() throws {
+        let reading = habit(target: 100, unit: .pages, evidence: true)
+        let submission = try CompletionPlanner.makeEvidenceSubmission(habit: reading, day: day, evidenceId: "e", quantity: 30,
+                                                                      condition: .aiAssisted, existing: [], calendar: calendar)
+        XCTAssertEqual(submission.quantity, 30)
+        XCTAssertThrowsError(try CompletionPlanner.makeEvidenceSubmission(habit: reading, day: day, evidenceId: "e", quantity: 0,
+                                                                          condition: .aiAssisted, existing: [], calendar: calendar))
+    }
+
     func testStarterTemplateMatchesStudyExamples() {
         let habits = HabitTemplates.disciplineStarter(userId: "u", startDate: day)
         XCTAssertEqual(habits.map(\.targetDescription), ["4x / week", "2x / week", "100 pages / week", "3x / week"])

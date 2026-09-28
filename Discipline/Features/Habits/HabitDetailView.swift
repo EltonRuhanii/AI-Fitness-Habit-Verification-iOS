@@ -7,6 +7,7 @@ struct HabitDetailView: View {
 
     @State private var editing = false
     @State private var actionTarget: Habit?
+    @State private var verificationSheet: VerificationDetailSheet.Source?
 
     private var habit: Habit? { store.habits.first { $0.id == habitId } }
 
@@ -48,6 +49,9 @@ struct HabitDetailView: View {
         }
         .sheet(isPresented: $editing) {
             HabitEditorView(habit: habit, userId: store.userId, today: store.today, calendar: store.calendar)
+        }
+        .sheet(item: $verificationSheet) { source in
+            VerificationDetailSheet(source: source)
         }
     }
 
@@ -113,7 +117,7 @@ struct HabitDetailView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(entries) { entry in
-                        HistoryRow(habit: habit, completion: entry, calendar: store.calendar)
+                        HistoryRow(habit: habit, completion: entry, calendar: store.calendar) { verificationSheet = $0 }
                         if entry.id != entries.last?.id {
                             Divider().overlay(Theme.Palette.hairline)
                         }
@@ -138,15 +142,13 @@ struct HabitPrimaryButton: View {
             .accessibilityIdentifier("habit.primaryAction")
     }
 
-    private var isEnabled: Bool {
-        guard store.progress(for: habit) != nil else { return false }
-        if store.requirement(for: habit) == .evidence { return true }
-        return habit.unit != .sessions || store.canLogSession(for: habit)
-    }
+    private var isEnabled: Bool { store.canLog(habit) }
 
     private var title: String {
         if store.progress(for: habit) == nil { return "Not scheduled today" }
-        if store.requirement(for: habit) == .evidence { return "Submit photo evidence" }
+        if store.requirement(for: habit) == .evidence {
+            return store.canLog(habit) ? "Submit photo evidence" : "Submitted for today"
+        }
         switch habit.unit {
         case .sessions: return store.canLogSession(for: habit) ? "Mark as done" : "Done for today"
         case .pages: return "Log pages"
@@ -159,8 +161,27 @@ private struct HistoryRow: View {
     let habit: Habit
     let completion: HabitCompletion
     let calendar: Calendar
+    let onShowVerification: (VerificationDetailSheet.Source) -> Void
+
+    /// Decided results can be inspected; pending submissions can be re-verified.
+    private var verificationSource: VerificationDetailSheet.Source? {
+        if completion.status == .pendingVerification, let evidenceId = completion.evidenceId {
+            return .retry(evidenceId: evidenceId)
+        }
+        return completion.verificationId.map { .stored(verificationId: $0) }
+    }
 
     var body: some View {
+        if let source = verificationSource {
+            Button { onShowVerification(source) } label: { row(showsChevron: true) }
+                .buttonStyle(.plain)
+                .accessibilityHint(completion.status == .pendingVerification ? "Retries verification" : "Shows verification details")
+        } else {
+            row(showsChevron: false)
+        }
+    }
+
+    private func row(showsChevron: Bool) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(completion.day.startDate(calendar: calendar).formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
@@ -171,10 +192,22 @@ private struct HistoryRow: View {
                     .foregroundStyle(Theme.Palette.textSecondary)
             }
             Spacer()
-            StatusBadge(status: completion.status)
+            if completion.status == .pendingVerification {
+                Label("Retry", systemImage: "arrow.clockwise")
+                    .font(Theme.Typography.caption.weight(.semibold))
+                    .foregroundStyle(Theme.Palette.accent)
+            } else {
+                StatusBadge(status: completion.status)
+            }
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.Palette.textTertiary)
+            }
         }
         .padding(.horizontal, Theme.Spacing.md)
         .padding(.vertical, Theme.Spacing.sm)
+        .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
 }

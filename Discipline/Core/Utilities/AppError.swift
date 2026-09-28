@@ -71,6 +71,22 @@ enum AppError: LocalizedError, Equatable {
             case 14: return .offline
             default: break
             }
+        case "com.firebase.functions":
+            // gRPC-style codes. For precondition/quota errors the server's message is user-facing.
+            switch nsError.code {
+            case 4, 14: return .offline
+            case 5: return .notFound
+            case 7, 16: return .permissionDenied
+            case 8, 9: return .validation(nsError.localizedDescription)
+            default: return .unknown("The verification service couldn't be reached. Please try again.")
+            }
+        case "FIRStorageErrorDomain":
+            switch nsError.code {
+            case -13021: return .permissionDenied
+            case -13030, -13040: return .offline
+            case -13013: return .unknown("Storage quota exceeded. Please contact the study team.")
+            default: return .unknown("The photo couldn't be uploaded. Please try again.")
+            }
         case NSURLErrorDomain:
             return .offline
         default:

@@ -1,0 +1,52 @@
+{
+  "version": "criteria-v1",
+  "defaultConfidenceThreshold": 0.7,
+  "flags": [
+    "screenshot_or_screen_photo",
+    "appears_downloaded_or_stock",
+    "unrelated_content",
+    "image_unclear",
+    "possible_reuse"
+  ],
+  "sharedCriteria": [
+    {
+      "id": "authentic_photo",
+      "name": "Genuine photograph",
+      "question": "Is this a genuine camera photograph (not a screenshot, a photo of a screen, or an obvious stock/downloaded image)?",
+      "isRequired": true
+    }
+  ],
+  "categories": {
+    "gym": [
+      { "id": "workout_environment", "name": "Gym or workout environment visible", "question": "Does the image appear to depict a gym or dedicated workout environment?", "isRequired": true },
+      { "id": "equipment_visible", "name": "Exercise equipment visible", "question": "Is exercise equipment (e.g. weights, machines, racks, benches) visible?", "isRequired": true },
+      { "id": "relevant_to_activity", "name": "Relevant to the declared activity", "question": "Is the image relevant to the declared activity described below?", "isRequired": true }
+    ],
+    "fitness": [
+      { "id": "exercise_context", "name": "Exercise context visible", "question": "Does the image show an exercise or training context (equipment, workout space, sportswear in use, or an activity in progress)?", "isRequired": true },
+      { "id": "relevant_to_activity", "name": "Relevant to the declared activity", "question": "Is the image relevant to the declared activity described below?", "isRequired": true }
+    ],
+    "running": [
+      { "id": "running_context", "name": "Running context visible", "question": "Does the image show a running context, such as a running route, track, treadmill, or running gear in an outdoor or training setting?", "isRequired": true },
+      { "id": "relevant_to_activity", "name": "Relevant to the declared activity", "question": "Is the image relevant to the declared activity described below?", "isRequired": true }
+    ],
+    "reading": [
+      { "id": "reading_material_visible", "name": "Reading material visible", "question": "Is reading material (a book, e-reader, or printed text) clearly visible?", "isRequired": true },
+      { "id": "relevant_to_activity", "name": "Relevant to the declared reading activity", "question": "Is the image relevant to the declared reading activity described below?", "isRequired": true }
+    ],
+    "recovery": [
+      { "id": "recovery_setup_visible", "name": "Recovery setup visible", "question": "Does the image depict a relevant recovery setup, such as a cold plunge, ice bath, cold water body, sauna, or stretching/mobility setup?", "isRequired": true },
+      { "id": "relevant_to_activity", "name": "Relevant to the declared activity", "question": "Is the image relevant to the declared activity described below?", "isRequired": true }
+    ],
+    "nutrition": [
+      { "id": "food_visible", "name": "Food or meal visible", "question": "Is food, a meal, or meal preparation clearly visible?", "isRequired": true },
+      { "id": "relevant_to_activity", "name": "Relevant to the declared nutrition goal", "question": "Is the image relevant to the declared nutrition activity described below?", "isRequired": true }
+    ],
+    "discipline": [
+      { "id": "relevant_to_activity", "name": "Relevant to the declared activity", "question": "Does the image plausibly show the setting, object, or result of the declared activity described below?", "isRequired": true }
+    ],
+    "custom": [
+      { "id": "relevant_to_activity", "name": "Relevant to the declared activity", "question": "Does the image plausibly show the setting, object, or result of the declared activity described below?", "isRequired": true }
+    ]
+  }
+}

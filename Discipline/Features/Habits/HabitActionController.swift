@@ -6,9 +6,10 @@ import DisciplineCore
 ///
 /// - Sessions: confirm, then log.
 /// - Pages/minutes: ask for the amount.
-/// - Evidence required (AI-assisted condition): photo flow (Phase 4).
+/// - Evidence required (AI-assisted condition): photo evidence + automated verification.
 struct HabitActionModifier: ViewModifier {
     @Environment(HabitsStore.self) private var store
+    @Environment(AppContainer.self) private var container
     @Binding var target: Habit?
 
     @State private var confirmingSession: Habit?
@@ -40,10 +41,8 @@ struct HabitActionModifier: ViewModifier {
                 }
                 .presentationDetents([.medium])
             }
-            .alert("Photo evidence", isPresented: Binding(get: { evidenceHabit != nil }, set: { if !$0 { evidenceHabit = nil } })) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("In your tracking mode, \(evidenceHabit?.name ?? "this habit") is completed by submitting a photo that's checked against defined criteria. Photo submission arrives in the next update.")
+            .sheet(item: $evidenceHabit) { habit in
+                EvidenceCaptureSheet(habit: habit, store: store, container: container)
             }
             .alert("Couldn't save", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
                 Button("OK", role: .cancel) {}

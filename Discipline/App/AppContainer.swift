@@ -11,6 +11,8 @@ final class AppContainer {
     let users: UserRepository
     let habits: HabitRepository
     let completions: CompletionRepository
+    let evidence: EvidenceService
+    let verification: AIVerificationService
     let sync: SyncMonitor
 
     init(
@@ -19,6 +21,8 @@ final class AppContainer {
         users: UserRepository,
         habits: HabitRepository,
         completions: CompletionRepository,
+        evidence: EvidenceService,
+        verification: AIVerificationService,
         sync: SyncMonitor
     ) {
         self.configuration = configuration
@@ -26,6 +30,8 @@ final class AppContainer {
         self.users = users
         self.habits = habits
         self.completions = completions
+        self.evidence = evidence
+        self.verification = verification
         self.sync = sync
     }
 
@@ -40,6 +46,8 @@ final class AppContainer {
                 users: FirestoreUserRepository(),
                 habits: FirestoreHabitRepository(monitor: sync),
                 completions: FirestoreCompletionRepository(monitor: sync),
+                evidence: FirebaseEvidenceService(),
+                verification: FirebaseVerificationService(),
                 sync: sync
             )
         case .demo:
@@ -52,12 +60,17 @@ final class AppContainer {
     }
 
     private static func demo(configuration: AppConfiguration, sync: SyncMonitor, defaults: UserDefaults = .standard) -> AppContainer {
-        AppContainer(
+        let habits = DemoHabitRepository()
+        let completions = DemoCompletionRepository()
+        let evidenceBackend = DemoEvidenceBackend(completions: completions, habits: habits)
+        return AppContainer(
             configuration: configuration,
             auth: DemoAuthenticationService(defaults: defaults),
             users: DemoUserRepository(),
-            habits: DemoHabitRepository(),
-            completions: DemoCompletionRepository(),
+            habits: habits,
+            completions: completions,
+            evidence: evidenceBackend,
+            verification: evidenceBackend,
             sync: sync
         )
     }

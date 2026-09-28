@@ -15,6 +15,20 @@ jobs:
       - name: Test
         run: swift test --package-path Packages/DisciplineCore
 
+  functions-tests:
+    name: Cloud Functions (AI verification) unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: firebase/functions
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+
   rules-tests:
     name: Firestore & Storage security rules
     runs-on: ubuntu-latest

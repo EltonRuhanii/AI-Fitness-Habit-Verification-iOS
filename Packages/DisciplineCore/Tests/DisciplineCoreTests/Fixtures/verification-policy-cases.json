@@ -1,0 +1,67 @@
+{
+  "_comment": "Shared test vectors. Run by BOTH the Swift (DisciplineCore) and TypeScript (Cloud Functions) test suites so the two policy implementations cannot drift apart.",
+  "criteria": [
+    { "id": "authentic_photo", "name": "Genuine photograph", "question": "q", "isRequired": true },
+    { "id": "workout_environment", "name": "Gym visible", "question": "q", "isRequired": true },
+    { "id": "equipment_visible", "name": "Equipment visible", "question": "q", "isRequired": true },
+    { "id": "bonus", "name": "Optional detail", "question": "q", "isRequired": false }
+  ],
+  "threshold": 0.7,
+  "cases": [
+    {
+      "name": "all required pass with high confidence -> verified",
+      "response": "{\"criteria\":[{\"id\":\"authentic_photo\",\"passed\":true},{\"id\":\"workout_environment\",\"passed\":true},{\"id\":\"equipment_visible\",\"passed\":true},{\"id\":\"bonus\",\"passed\":false}],\"confidence\":0.91,\"reason\":\"Gym with dumbbells.\",\"flags\":[]}",
+      "expected": { "status": "verified", "confidence": 0.91 }
+    },
+    {
+      "name": "a required criterion fails -> rejected",
+      "response": "{\"criteria\":[{\"id\":\"authentic_photo\",\"passed\":true},{\"id\":\"workout_environment\",\"passed\":false},{\"id\":\"equipment_visible\",\"passed\":false},{\"id\":\"bonus\",\"passed\":false}],\"confidence\":0.88,\"reason\":\"A kitchen.\",\"flags\":[\"unrelated_content\"]}",
+      "expected": { "status": "rejected", "confidence": 0.88 }
+    },
+    {
+      "name": "confidence below threshold -> uncertain even if criteria pass",
+      "response": "{\"criteria\":[{\"id\":\"authentic_photo\",\"passed\":true},{\"id\":\"workout_environment\",\"passed\":true},{\"id\":\"equipment_visible\",\"passed\":true},{\"id\":\"bonus\",\"passed\":true}],\"confidence\":0.55,\"reason\":\"Dark image.\",\"flags\":[\"image_unclear\"]}",
+      "expected": { "status": "uncertain", "confidence": 0.55 }
+    },
+    {
+      "name": "low confidence rejection is also uncertain",
+      "response": "{\"criteria\":[{\"id\":\"authentic_photo\",\"passed\":true},{\"id\":\"workout_environment\",\"passed\":false},{\"id\":\"equipment_visible\",\"passed\":true},{\"id\":\"bonus\",\"passed\":true}],\"confidence\":0.4,\"reason\":\"Hard to tell.\",\"flags\":[]}",
+      "expected": { "status": "uncertain", "confidence": 0.4 }
+    },
+    {
+      "name": "confidence exactly at threshold counts as confident",
+      "response": "{\"criteria\":[{\"id\":\"authentic_photo\",\"passed\":true},{\"id\":\"workout_environment\",\"passed\":true},{\"id\":\"equipment_visible\",\"passed\":true},{\"id\":\"bonus\",\"passed\":true}],\"confidence\":0.7,\"reason\":\"ok\",\"flags\":[]}",
+      "expected": { "status": "verified", "confidence": 0.7 }
+    },
+    {
+      "name": "optional criterion failing does not reject",
+      "response": "{\"criteria\":[{\"id\":\"authentic_photo\",\"passed\":true},{\"id\":\"workout_environment\",\"passed\":true},{\"id\":\"equipment_visible\",\"passed\":true},{\"id\":\"bonus\",\"passed\":false}],\"confidence\":0.8,\"reason\":\"ok\",\"flags\":[]}",
+      "expected": { "status": "verified", "confidence": 0.8 }
+    },
+    {
+      "name": "unknown extra criterion is ignored and flagged",
+      "response": "{\"criteria\":[{\"id\":\"authentic_photo\",\"passed\":true},{\"id\":\"workout_environment\",\"passed\":true},{\"id\":\"equipment_visible\",\"passed\":true},{\"id\":\"bonus\",\"passed\":true},{\"id\":\"invented\",\"passed\":false}],\"confidence\":0.9,\"reason\":\"ok\",\"flags\":[]}",
+      "expected": { "status": "verified", "confidence": 0.9, "flagsInclude": "unexpected_criterion" }
+    },
+    {
+      "name": "malformed JSON",
+      "response": "Sure! Here is my assessment: the photo shows a gym.",
+      "expected": { "error": "malformed_response" }
+    },
+    {
+      "name": "missing a defined criterion",
+      "response": "{\"criteria\":[{\"id\":\"authentic_photo\",\"passed\":true}],\"confidence\":0.9,\"reason\":\"ok\",\"flags\":[]}",
+      "expected": { "error": "malformed_response" }
+    },
+    {
+      "name": "confidence out of range",
+      "response": "{\"criteria\":[{\"id\":\"authentic_photo\",\"passed\":true},{\"id\":\"workout_environment\",\"passed\":true},{\"id\":\"equipment_visible\",\"passed\":true},{\"id\":\"bonus\",\"passed\":true}],\"confidence\":1.7,\"reason\":\"ok\",\"flags\":[]}",
+      "expected": { "error": "malformed_response" }
+    },
+    {
+      "name": "duplicate criterion with conflicting answers",
+      "response": "{\"criteria\":[{\"id\":\"authentic_photo\",\"passed\":true},{\"id\":\"workout_environment\",\"passed\":true},{\"id\":\"workout_environment\",\"passed\":false},{\"id\":\"equipment_visible\",\"passed\":true},{\"id\":\"bonus\",\"passed\":true}],\"confidence\":0.9,\"reason\":\"ok\",\"flags\":[]}",
+      "expected": { "error": "malformed_response" }
+    }
+  ]
+}

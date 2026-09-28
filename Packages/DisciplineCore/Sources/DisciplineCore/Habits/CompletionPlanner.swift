@@ -14,6 +14,8 @@ public enum CompletionPlanError: Error, Equatable, Sendable {
     case alreadyCompletedToday
     case invalidQuantity
     case evidenceRequired
+    /// Evidence was submitted for a habit that is self-reported in this condition.
+    case evidenceNotApplicable
 }
 
 /// Decides whether and how a completion may be logged. Mirrors the Firestore rules so
@@ -45,6 +47,44 @@ public enum CompletionPlanner {
     public static func canLogSession(for habit: Habit, on day: DayKey, completions: [HabitCompletion], calendar: Calendar) -> Bool {
         guard habit.unit == .sessions, HabitSchedule.isScheduled(habit, on: day, calendar: calendar) else { return false }
         return activeCompletions(for: habit, on: day, in: completions).count < maxSessionsPerDay(for: habit)
+    }
+
+    /// Builds a completion awaiting photo verification. Only valid when the participant's
+    /// condition requires evidence for this habit; the manual condition never submits evidence.
+    /// Uses the same slot rules as self-reports: a rejected attempt frees its slot for a retry.
+    public static func makeEvidenceSubmission(
+        habit: Habit,
+        day: DayKey,
+        evidenceId: String,
+        quantity: Int = 1,
+        condition: TrackingCondition,
+        existing: [HabitCompletion],
+        calendar: Calendar,
+        now: Date = Date(),
+        requestId: String = UUID().uuidString
+    ) throws -> HabitCompletion {
+        guard HabitSchedule.isScheduled(habit, on: day, calendar: calendar) else { throw CompletionPlanError.notScheduled }
+        guard requirement(for: habit, condition: condition) == .evidence else { throw CompletionPlanError.evidenceNotApplicable }
+        guard activeCompletions(for: habit, on: day, in: existing).count < maxSessionsPerDay(for: habit) else {
+            throw CompletionPlanError.alreadyCompletedToday
+        }
+        if habit.unit != .sessions, !(1...10_000).contains(quantity) { throw CompletionPlanError.invalidQuantity }
+        let index = existing.filter { $0.habitId == habit.id && $0.day == day }.count
+        return HabitCompletion(
+            id: "\(habit.id)_\(day)_\(index)",
+            userId: habit.userId,
+            habitId: habit.id,
+            challengeId: habit.challengeId,
+            day: day,
+            quantity: habit.unit == .sessions ? 1 : quantity,
+            status: .pendingVerification,
+            method: .photoVerification,
+            trackingCondition: condition,
+            evidenceId: evidenceId,
+            createdAt: now,
+            updatedAt: now,
+            clientRequestId: requestId
+        )
     }
 
     /// Builds a self-reported completion, or throws if it isn't allowed.

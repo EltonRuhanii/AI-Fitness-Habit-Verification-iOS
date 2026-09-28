@@ -25,6 +25,10 @@ final class DemoCollection<Value: Codable & Identifiable> where Value.ID == Stri
         }
     }
 
+    func snapshot() -> [Value] {
+        Array(values.values)
+    }
+
     func upsert(_ value: Value) throws {
         values[value.id] = value
         try store.save(values)
@@ -44,6 +48,10 @@ final class DemoHabitRepository: HabitRepository {
 
     func save(_ habit: Habit) throws {
         try collection.upsert(habit)
+    }
+
+    func all() -> [Habit] {
+        collection.snapshot()
     }
 }
 

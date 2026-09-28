@@ -11,7 +11,17 @@ let package = Package(
         .library(name: "DisciplineCore", targets: ["DisciplineCore"])
     ],
     targets: [
-        .target(name: "DisciplineCore"),
-        .testTarget(name: "DisciplineCoreTests", dependencies: ["DisciplineCore"])
+        .target(
+            name: "DisciplineCore",
+            // verification-criteria.json is the single source of truth for photo criteria.
+            // The Cloud Functions build copies it, so app and server always agree.
+            resources: [.process("Resources")]
+        ),
+        .testTarget(
+            name: "DisciplineCoreTests",
+            dependencies: ["DisciplineCore"],
+            // Shared test vectors, read by path so the TypeScript tests can use the same file.
+            exclude: ["Fixtures"]
+        )
     ]
 )
