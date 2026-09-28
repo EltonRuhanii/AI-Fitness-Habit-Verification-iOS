@@ -27,8 +27,8 @@ The project was established from scratch.
 | # | Phase | Status | Contents |
 |---|---|---|---|
 | 1 | Foundation | ✅ | Project, `DisciplineCore` models + tests, design system, DI container, Firebase bootstrap, auth (register/login/logout/reset/persistent), onboarding + rules consent, tab navigation, profile with sign-out and account deletion, Firestore and Storage security rules, CI |
-| 2 | Habits | ⏳ | Habit repository, create/edit/archive, completion flow (self-report), daily/weekly/custom target calculator + tests, idempotent completions |
-| 3 | Dashboard | ⏳ | Today's commitments, weekly goal bars, pending items, recent activity |
+| 2 | Habits | ✅ | Habit/completion repositories (Firestore + demo, local-first with sync monitor), create/edit/archive, self-report completion flow, daily/weekly/custom targets and monthly adherence in core + tests, idempotent completion IDs, starter template |
+| 3 | Dashboard | 🔨 | ✅ Today's commitments, weekly goal bars, sync status · ⏳ streak display (Phase 8), accountability items (Phase 6), recent activity |
 | 4 | Photo evidence | ⏳ | Camera + PhotosPicker, preview/retake, JPEG compression, Storage upload, evidence records |
 | 5 | AI verification | ⏳ | `verifyEvidence` Cloud Function, per-category criteria catalog, structured JSON schema, confidence-threshold policy (core + tests), immutable history |
 | 6 | Accountability | ⏳ | Skip → consequence preview → explicit accept, task lifecycle, deadline expiry |
