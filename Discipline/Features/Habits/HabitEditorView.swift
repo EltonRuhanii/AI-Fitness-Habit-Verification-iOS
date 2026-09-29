@@ -78,12 +78,17 @@ struct HabitEditorView: View {
                 } header: {
                     Text("Commitment")
                 } footer: {
-                    Text(frequencyFooter)
+                    Text(isCommitmentLocked
+                         ? "Locked while \(lockingChallengeName) is active, so earlier days can't be re-scored. You can still rename or archive the habit."
+                         : frequencyFooter)
                 }
+                .disabled(isCommitmentLocked)
 
                 Section {
                     Toggle("Require photo evidence", isOn: $draft.requiresEvidence)
+                        .disabled(isCommitmentLocked)
                     Toggle("Required for daily success", isOn: $draft.isRequired)
+                        .disabled(isCommitmentLocked)
                 } header: {
                     Text("Verification")
                 } footer: {
@@ -105,6 +110,7 @@ struct HabitEditorView: View {
 
                 Section("Dates") {
                     DatePicker("Starts", selection: $startDate, displayedComponents: .date)
+                        .disabled(isCommitmentLocked)
                     Toggle("End date", isOn: $hasEndDate.animation())
                     if hasEndDate {
                         DatePicker("Ends", selection: $endDate, in: startDate..., displayedComponents: .date)
@@ -209,6 +215,15 @@ struct HabitEditorView: View {
             set: { draft.skipConsequence = AccountabilityTemplate(type: .pushUps, target: $0) }
         )
     }
+
+    /// Habits in an active challenge keep their commitment fixed (also enforced by security rules).
+    private var lockingChallenge: Challenge? {
+        guard !isNew, let challengeId = draft.challengeId else { return nil }
+        return store.challenges.first { $0.id == challengeId && $0.status == .active }
+    }
+
+    private var isCommitmentLocked: Bool { lockingChallenge != nil }
+    private var lockingChallengeName: String { lockingChallenge?.name ?? "the challenge" }
 
     private var canSave: Bool {
         !draft.name.trimmingCharacters(in: .whitespaces).isEmpty

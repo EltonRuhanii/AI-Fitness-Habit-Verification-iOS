@@ -179,6 +179,7 @@ struct DashboardView: View {
                         NavigationLink(value: commitment.habit.id) {
                             CommitmentRow(commitment: commitment) { actionTarget = commitment.habit }
                         }
+                        .accessibilityIdentifier("commitment.row.\(commitment.habit.name)")
                         .contextMenu {
                             if store.canSkip(commitment.habit) {
                                 Button("Skip today…", systemImage: "arrow.uturn.forward") { skipTarget = commitment.habit }

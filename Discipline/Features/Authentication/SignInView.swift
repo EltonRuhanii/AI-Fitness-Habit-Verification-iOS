@@ -6,10 +6,8 @@ struct SignInView: View {
 
     var body: some View {
         AuthFormScaffold(title: "Welcome back", subtitle: "Sign in to continue your streak.") {
-            FormField(title: "Email", systemImage: "envelope", text: $viewModel.email, kind: .email)
-                .accessibilityIdentifier("signIn.email")
-            FormField(title: "Password", systemImage: "lock", text: $viewModel.password, kind: .password)
-                .accessibilityIdentifier("signIn.password")
+            FormField(title: "Email", systemImage: "envelope", text: $viewModel.email, kind: .email, identifier: "signIn.email")
+            FormField(title: "Password", systemImage: "lock", text: $viewModel.password, kind: .password, identifier: "signIn.password")
 
             HStack {
                 Spacer()

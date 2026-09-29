@@ -159,13 +159,53 @@ test('participant can record an accepted skip, but cannot resolve it themselves'
 test('exercise sessions are write-once and tied to own task', async () => {
   await seed('accountabilityTasks/t1', { id: 't1', userId: 'alice' });
   await seed('accountabilityTasks/tb', { id: 'tb', userId: 'bob' });
-  const session = { id: 's1', userId: 'alice', accountabilityTaskId: 't1', validReps: 50, invalidReps: 3 };
+  const session = { id: 's1', userId: 'alice', accountabilityTaskId: 't1', targetReps: 50, validReps: 50, invalidReps: 3 };
   await assertFails(setDoc(doc(alice(), 'exerciseSessions/s2'), { ...session, id: 's2', accountabilityTaskId: 'tb' }));
   await assertSucceeds(setDoc(doc(alice(), 'exerciseSessions/s1'), session));
   await assertFails(updateDoc(doc(alice(), 'exerciseSessions/s1'), { validReps: 100 }));
 });
 
 // ---------- challenges ----------
+test('exercise sessions cannot claim more valid reps than their target', async () => {
+  await seed('accountabilityTasks/t1', { id: 't1', userId: 'alice' });
+  const base = { id: 's1', userId: 'alice', accountabilityTaskId: 't1', invalidReps: 0 };
+  await assertFails(setDoc(doc(alice(), 'exerciseSessions/s1'), { ...base, targetReps: 50, validReps: 10000 }));
+  await assertFails(setDoc(doc(alice(), 'exerciseSessions/s1'), { ...base, targetReps: 10000, validReps: 10000 }));
+  await assertSucceeds(setDoc(doc(alice(), 'exerciseSessions/s1'), { ...base, targetReps: 50, validReps: 50 }));
+});
+
+test('accountability deadline is at most 48 hours away', async () => {
+  const task = { id: 't1', userId: 'alice', sourceHabitId: 'h1', sourceCompletionId: 'c1', day: '2026-09-28',
+    type: 'pushUps', target: 50, progress: 0, status: 'pending' };
+  await assertFails(setDoc(doc(alice(), 'accountabilityTasks/t1'), { ...task, deadline: new Date(Date.now() + 365 * 86_400_000) }));
+  await assertFails(setDoc(doc(alice(), 'accountabilityTasks/t1'), { ...task, deadline: new Date(Date.now() - 60_000) }));
+  await assertSucceeds(setDoc(doc(alice(), 'accountabilityTasks/t1'), { ...task, deadline: new Date(Date.now() + 24 * 3_600_000) }));
+});
+
+test('habits in an active challenge cannot have their commitment changed', async () => {
+  await seed('challenges/ch1', { id: 'ch1', ownerId: 'alice', status: 'active' });
+  await seed('habits/h1', { id: 'h1', userId: 'alice', challengeId: 'ch1', targetCount: 4, frequency: 'weekly', isActive: true });
+  await assertFails(updateDoc(doc(alice(), 'habits/h1'), { targetCount: 1 }));
+  await assertFails(updateDoc(doc(alice(), 'habits/h1'), { challengeId: null }));
+  await assertSucceeds(updateDoc(doc(alice(), 'habits/h1'), { name: 'Gym (renamed)' }));
+  await assertSucceeds(updateDoc(doc(alice(), 'habits/h1'), { isActive: false, endDate: '2026-09-28' }));
+  await seed('habits/h2', { id: 'h2', userId: 'alice', targetCount: 4 });
+  await assertSucceeds(updateDoc(doc(alice(), 'habits/h2'), { targetCount: 1 }), 'habits outside challenges stay editable');
+});
+
+test('completions must reference the participant\'s own habit', async () => {
+  await seed('users/alice', profile('alice', 'manual'));
+  await seed('habits/hb', { id: 'hb', userId: 'bob', requiresEvidence: false });
+  await assertFails(setDoc(doc(alice(), 'habitCompletions/c1'), completion({ habitId: 'hb', trackingCondition: 'manual' })));
+});
+
+test('challenge lifecycle cannot be reversed', async () => {
+  await seed('challenges/ch1', { id: 'ch1', ownerId: 'alice', status: 'abandoned', rules: {} });
+  await assertFails(updateDoc(doc(alice(), 'challenges/ch1'), { status: 'active' }));
+  await seed('challenges/ch2', { id: 'ch2', ownerId: 'alice', status: 'active', rules: {} });
+  await assertSucceeds(updateDoc(doc(alice(), 'challenges/ch2'), { status: 'abandoned' }));
+});
+
 test('challenge rules are locked once active', async () => {
   await seed('challenges/ch1', { id: 'ch1', ownerId: 'alice', status: 'active', rules: { allowSkipping: false } });
   await assertFails(updateDoc(doc(alice(), 'challenges/ch1'), { 'rules.allowSkipping': true }));

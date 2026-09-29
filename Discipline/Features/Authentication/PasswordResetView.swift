@@ -5,8 +5,7 @@ struct PasswordResetView: View {
 
     var body: some View {
         AuthFormScaffold(title: "Reset password", subtitle: "We'll email you a link to choose a new password.") {
-            FormField(title: "Email", systemImage: "envelope", text: $viewModel.email, kind: .email)
-                .accessibilityIdentifier("reset.email")
+            FormField(title: "Email", systemImage: "envelope", text: $viewModel.email, kind: .email, identifier: "reset.email")
 
             if let error = viewModel.errorMessage {
                 InlineMessage(text: error)

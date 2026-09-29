@@ -34,6 +34,13 @@ export class FirestoreVerificationStore implements VerificationStore {
     return result.data().count;
   }
 
+  async countUserAttemptsSince(uid: string, since: Date): Promise<number> {
+    // Uses the (userId, timestamp) composite index.
+    const result = await this.db.collection("verifications")
+      .where("userId", "==", uid).where("timestamp", ">=", Timestamp.fromDate(since)).count().get();
+    return result.data().count;
+  }
+
   async downloadImage(storagePath: string): Promise<Buffer> {
     const [buffer] = await getStorage().bucket().file(storagePath).download();
     return buffer;

@@ -9,7 +9,8 @@ struct ExerciseCameraView: View {
     @State private var confirmsEnd = false
 
     init(task: AccountabilityTask, store: HabitsStore, container: AppContainer) {
-        _model = State(initialValue: ExerciseSessionModel(task: task, store: store, repository: container.exerciseSessions))
+        let source: PoseSource = container.configuration.isUITesting ? ScriptedPoseSource() : PoseCamera()
+        _model = State(initialValue: ExerciseSessionModel(task: task, store: store, repository: container.exerciseSessions, source: source))
     }
 
     var body: some View {
@@ -42,8 +43,10 @@ struct ExerciseCameraView: View {
 
     private var runningView: some View {
         ZStack {
-            CameraPreview(session: model.camera.session)
-                .ignoresSafeArea()
+            if let session = model.camera.captureSession {
+                CameraPreview(session: session)
+                    .ignoresSafeArea()
+            }
             Group {
                 if model.mode == .face {
                     FaceOverlay(face: model.face, imageAspect: model.imageAspect)

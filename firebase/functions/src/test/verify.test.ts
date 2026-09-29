@@ -6,6 +6,7 @@ import { assessmentSchema, buildUserText } from "../prompt";
 import { ProviderError, type VisionProvider, type VisionRequest } from "../providers/types";
 import {
   MAX_ATTEMPTS_PER_EVIDENCE,
+  MAX_ATTEMPTS_PER_USER_PER_DAY,
   runVerification,
   VerificationRequestError,
   type EvidenceDoc,
@@ -24,6 +25,7 @@ class FakeStore implements VerificationStore {
   };
   habit: HabitDoc | null = { id: "h1", userId: "alice", name: "Gym", description: "", category: "gym" };
   attempts = 0;
+  userAttempts = 0;
   threshold: number | null = null;
   verifications = new Map<string, VerificationRecord>();
   commits: { record: VerificationRecord; completionStatus: string | null }[] = [];
@@ -33,6 +35,7 @@ class FakeStore implements VerificationStore {
   async getVerification(id: string) { return this.verifications.get(id) ?? null; }
   async getChallengeThreshold() { return this.threshold; }
   async countAttempts() { return this.attempts; }
+  async countUserAttemptsSince() { return this.userAttempts; }
   async downloadImage() { return Buffer.from([0xff, 0xd8, 0xff, 0xd9]); }
   async commit(record: VerificationRecord, _evidence: EvidenceDoc, completionStatus: "verified" | "rejected" | "uncertain" | null) {
     this.commits.push({ record, completionStatus });
@@ -137,6 +140,15 @@ test("attempts are capped per evidence", async () => {
   store.attempts = MAX_ATTEMPTS_PER_EVIDENCE;
   await assert.rejects(runVerification("alice", "e1", deps(store, new FakeProvider(async () => answer({}, 0.9)))),
     (e: unknown) => e instanceof VerificationRequestError && e.code === "resource-exhausted");
+});
+
+test("participants have a daily cap on AI verifications", async () => {
+  const store = new FakeStore();
+  store.userAttempts = MAX_ATTEMPTS_PER_USER_PER_DAY;
+  const provider = new FakeProvider(async () => answer({}, 0.9));
+  await assert.rejects(runVerification("alice", "e1", deps(store, provider)),
+    (e: unknown) => e instanceof VerificationRequestError && e.code === "resource-exhausted");
+  assert.equal(provider.calls.length, 0, "no paid call once the cap is reached");
 });
 
 test("prompt treats the habit declaration as data and lists every criterion", () => {

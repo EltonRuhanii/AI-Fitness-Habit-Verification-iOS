@@ -77,7 +77,8 @@ final class AppContainer {
     private static func demo(configuration: AppConfiguration, sync: SyncMonitor, defaults: UserDefaults = .standard) -> AppContainer {
         let habits = DemoHabitRepository()
         let completions = DemoCompletionRepository()
-        let evidenceBackend = DemoEvidenceBackend(completions: completions, habits: habits)
+        let evidenceBackend = DemoEvidenceBackend(completions: completions, habits: habits,
+                                                  stubVerification: configuration.isUITesting)
         let accountability = DemoAccountabilityRepository(completions: completions)
         return AppContainer(
             configuration: configuration,

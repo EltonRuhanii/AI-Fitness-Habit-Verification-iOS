@@ -109,6 +109,7 @@ struct FormField: View {
     let systemImage: String
     @Binding var text: String
     var kind: Kind = .text
+    var identifier: String?
 
     @State private var isRevealed = false
 
@@ -127,7 +128,8 @@ struct FormField: View {
                 }
             }
             .font(Theme.Typography.body)
-            .textContentType(contentType)
+            .textContentType(AppConfiguration.current.isUITesting ? nil : contentType)
+            .accessibilityIdentifier(identifier ?? title)
             .keyboardType(kind == .email ? .emailAddress : .default)
             .textInputAutocapitalization(kind == .name ? .words : .never)
             .autocorrectionDisabled(kind != .name)

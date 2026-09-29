@@ -14,14 +14,30 @@
 		D15000000000000000000024 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = D1500000000000000000001F /* FirebaseFunctions */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		D1500000000000000000002B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D1500000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D1500000000000000000000F;
+			remoteInfo = Discipline;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		D1500000000000000000000D /* Discipline.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Discipline.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D15000000000000000000025 /* DisciplineUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DisciplineUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D1500000000000000000000E /* Discipline */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Discipline;
+			sourceTree = "<group>";
+		};
+		D15000000000000000000026 /* DisciplineUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = DisciplineUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -39,6 +55,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D15000000000000000000029 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -46,6 +69,7 @@
 			isa = PBXGroup;
 			children = (
 				D1500000000000000000000E /* Discipline */,
+				D15000000000000000000026 /* DisciplineUITests */,
 				D1500000000000000000000C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -54,6 +78,7 @@
 			isa = PBXGroup;
 			children = (
 				D1500000000000000000000D /* Discipline.app */,
+				D15000000000000000000025 /* DisciplineUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -88,6 +113,29 @@
 			productReference = D1500000000000000000000D /* Discipline.app */;
 			productType = "com.apple.product-type.application";
 		};
+		D15000000000000000000027 /* DisciplineUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D1500000000000000000002D /* Build configuration list for PBXNativeTarget "DisciplineUITests" */;
+			buildPhases = (
+				D15000000000000000000028 /* Sources */,
+				D15000000000000000000029 /* Frameworks */,
+				D1500000000000000000002A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D1500000000000000000002C /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D15000000000000000000026 /* DisciplineUITests */,
+			);
+			name = DisciplineUITests;
+			packageProductDependencies = (
+			);
+			productName = DisciplineUITests;
+			productReference = D15000000000000000000025 /* DisciplineUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -100,6 +148,10 @@
 				TargetAttributes = {
 					D1500000000000000000000F = {
 						CreatedOnToolsVersion = 16.0;
+					};
+					D15000000000000000000027 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = D1500000000000000000000F;
 					};
 				};
 			};
@@ -122,12 +174,20 @@
 			projectRoot = "";
 			targets = (
 				D1500000000000000000000F /* Discipline */,
+				D15000000000000000000027 /* DisciplineUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		D15000000000000000000012 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D1500000000000000000002A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -144,7 +204,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D15000000000000000000028 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D1500000000000000000002C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D1500000000000000000000F /* Discipline */;
+			targetProxy = D1500000000000000000002B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		D15000000000000000000015 /* Debug */ = {
@@ -300,6 +375,40 @@
 			};
 			name = Release;
 		};
+		D1500000000000000000002E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eltonruhani.discipline.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Discipline;
+			};
+			name = Debug;
+		};
+		D1500000000000000000002F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eltonruhani.discipline.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Discipline;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -317,6 +426,15 @@
 			buildConfigurations = (
 				D15000000000000000000017 /* Debug */,
 				D15000000000000000000018 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D1500000000000000000002D /* Build configuration list for PBXNativeTarget "DisciplineUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D1500000000000000000002E /* Debug */,
+				D1500000000000000000002F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

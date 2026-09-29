@@ -4,6 +4,8 @@ import { assessmentSchema, buildUserText, PROMPT_REVISION, SYSTEM_PROMPT } from 
 import { ProviderError, type VisionProvider } from "./providers/types";
 
 export const MAX_ATTEMPTS_PER_EVIDENCE = 3;
+/** Per-participant cap on paid AI calls in any rolling 24 h (abuse / cost protection). */
+export const MAX_ATTEMPTS_PER_USER_PER_DAY = 30;
 
 export type VerificationStatus = "verified" | "rejected" | "uncertain" | "error";
 
@@ -54,6 +56,7 @@ export interface VerificationStore {
   /** Challenge-specific threshold, or null to use the catalog default. */
   getChallengeThreshold(challengeId: string): Promise<number | null>;
   countAttempts(evidenceId: string): Promise<number>;
+  countUserAttemptsSince(uid: string, since: Date): Promise<number>;
   downloadImage(storagePath: string): Promise<Buffer>;
   /** Atomically: create the verification, update the evidence, and update the completion. */
   commit(record: VerificationRecord, evidence: EvidenceDoc, completionStatus: "verified" | "rejected" | "uncertain" | null): Promise<void>;
@@ -102,6 +105,10 @@ export async function runVerification(uid: string, evidenceId: string, deps: Ver
 
   if ((await store.countAttempts(evidenceId)) >= MAX_ATTEMPTS_PER_EVIDENCE) {
     throw new VerificationRequestError("resource-exhausted", "This evidence has reached the maximum number of verification attempts.");
+  }
+  const dayAgo = new Date(now().getTime() - 24 * 3_600_000);
+  if ((await store.countUserAttemptsSince(uid, dayAgo)) >= MAX_ATTEMPTS_PER_USER_PER_DAY) {
+    throw new VerificationRequestError("resource-exhausted", "You've reached today's limit for photo verifications. Please try again tomorrow.");
   }
 
   const habit = await store.getHabit(evidence.habitId);

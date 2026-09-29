@@ -21,11 +21,14 @@ final class DemoEvidenceBackend: EvidenceService, AIVerificationService {
     /// Copies of submitted completions, so verification can update them after an app restart.
     private let submittedCompletions = DemoCollection<HabitCompletion>(fileName: "demo-evidence-completions.json")
     private let imageDirectory: URL
+    /// UI tests: every criterion passes with high confidence, still decided by the real policy.
+    private let stubVerification: Bool
 
     /// - Parameter habits: used to look up the category of submitted evidence.
-    init(completions: CompletionRepository, habits: DemoHabitRepository) {
+    init(completions: CompletionRepository, habits: DemoHabitRepository, stubVerification: Bool = false) {
         self.completions = completions
         self.habits = habits
+        self.stubVerification = stubVerification
         let base = (try? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
             ?? FileManager.default.temporaryDirectory
         imageDirectory = base.appendingPathComponent("Demo/evidence", isDirectory: true)
@@ -70,8 +73,14 @@ final class DemoEvidenceBackend: EvidenceService, AIVerificationService {
 
         var result: VerificationResult
         do {
-            let labels = try await Task.detached(priority: .userInitiated) { try Self.classify(imageAt: url) }.value
-            let assessment = Self.assess(labels: labels, criteria: criteria)
+            let assessment: ModelAssessment
+            if stubVerification {
+                assessment = ModelAssessment(criteria: criteria.map { .init(id: $0.id, passed: true) }, confidence: 0.95,
+                                             reason: "UI-test stub: all criteria satisfied.", flags: [])
+            } else {
+                let labels = try await Task.detached(priority: .userInitiated) { try Self.classify(imageAt: url) }.value
+                assessment = Self.assess(labels: labels, criteria: criteria)
+            }
             let decision = try VerificationPolicy.decide(assessment, criteria: criteria, threshold: threshold)
             result = VerificationResult(
                 id: UUID().uuidString, userId: item.userId, habitId: habit.id, evidenceId: evidenceId,

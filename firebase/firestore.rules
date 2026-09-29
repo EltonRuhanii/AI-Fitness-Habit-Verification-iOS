@@ -47,11 +47,22 @@ service cloud.firestore {
     // ---------- habits ----------
     // Habits are archived (isActive = false), never deleted by the client, so research
     // history stays intact. Account deletion removes them server-side.
+    // While a habit belongs to an active challenge, its commitment can't be changed: lowering a
+    // target mid-challenge would retroactively turn failed days into successful ones and corrupt
+    // research data. Archiving (isActive / endDate) stays possible.
+    function inActiveChallenge(data) {
+      return ('challengeId' in data) && data.challengeId != null
+        && exists(/databases/$(database)/documents/challenges/$(data.challengeId))
+        && get(/databases/$(database)/documents/challenges/$(data.challengeId)).data.status == 'active';
+    }
     match /habits/{habitId} {
       allow read: if ownsExisting();
       allow create: if ownsIncoming() && idMatches(habitId);
       allow update: if ownsExisting() && ownsIncoming()
-        && unchanged(['id', 'userId']);
+        && unchanged(['id', 'userId'])
+        && (!inActiveChallenge(resource.data)
+            || unchanged(['challengeId', 'frequency', 'unit', 'targetCount', 'scheduledWeekdays',
+                          'startDate', 'isRequired', 'requiresEvidence']));
       allow delete: if false;
     }
 
@@ -69,10 +80,14 @@ service cloud.firestore {
         || myProfile().trackingCondition == 'manual'
         || get(/databases/$(database)/documents/habits/$(data.habitId)).data.requiresEvidence == false;
     }
+    function ownsHabit(habitId) {
+      return get(/databases/$(database)/documents/habits/$(habitId)).data.userId == request.auth.uid;
+    }
     match /habitCompletions/{completionId} {
       allow read: if ownsExisting();
       allow create: if ownsIncoming()
         && idMatches(completionId)
+        && ownsHabit(request.resource.data.habitId)
         && request.resource.data.status in clientSettableStatuses()
         && request.resource.data.trackingCondition == myProfile().trackingCondition
         && !('verificationId' in request.resource.data)
@@ -112,7 +127,10 @@ service cloud.firestore {
         && request.resource.data.progress == 0
         && request.resource.data.target is int
         && request.resource.data.target > 0
-        && request.resource.data.target <= 150;
+        && request.resource.data.target <= 150
+        // The deadline is fixed at acceptance and at most 48 h away.
+        && request.resource.data.deadline > request.time
+        && request.resource.data.deadline <= request.time + duration.value(48, 'h');
       // The client may start a task; completion/failure is decided server-side from
       // the recorded exercise sessions.
       allow update: if ownsExisting() && ownsIncoming()
@@ -128,8 +146,12 @@ service cloud.firestore {
       allow read: if ownsExisting();
       allow create: if ownsIncoming()
         && idMatches(sessionId)
+        && request.resource.data.targetReps is int
+        && request.resource.data.targetReps > 0 && request.resource.data.targetReps <= 150
         && request.resource.data.validReps is int && request.resource.data.validReps >= 0
+        && request.resource.data.validReps <= request.resource.data.targetReps
         && request.resource.data.invalidReps is int && request.resource.data.invalidReps >= 0
+        && request.resource.data.invalidReps <= 500
         && exists(/databases/$(database)/documents/accountabilityTasks/$(request.resource.data.accountabilityTaskId))
         && get(/databases/$(database)/documents/accountabilityTasks/$(request.resource.data.accountabilityTaskId)).data.userId == request.auth.uid;
       allow update, delete: if false;
@@ -146,7 +168,11 @@ service cloud.firestore {
         && resource.data.ownerId == request.auth.uid
         && unchanged(['id', 'ownerId'])
         && (resource.data.status == 'draft'
-            || unchanged(['rules', 'startDate', 'endDate', 'durationDays']));
+            || unchanged(['rules', 'startDate', 'endDate', 'durationDays']))
+        // Lifecycle: draft → anything; active → completed / abandoned; finished stays finished.
+        && (request.resource.data.status == resource.data.status
+            || resource.data.status == 'draft'
+            || (resource.data.status == 'active' && request.resource.data.status in ['completed', 'abandoned']));
       allow delete: if false;
     }
 

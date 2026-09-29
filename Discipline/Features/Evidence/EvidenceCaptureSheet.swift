@@ -181,6 +181,12 @@ struct EvidenceCaptureSheet: View {
                 }
                 .buttonStyle(.secondary)
                 .accessibilityIdentifier("evidence.library")
+
+                if container.configuration.isUITesting {
+                    Button("Use sample photo") { model.use(Self.samplePhoto(), source: .library) }
+                        .buttonStyle(.secondary)
+                        .accessibilityIdentifier("evidence.sample")
+                }
             case .preview:
                 Button("Submit for verification") { Task { await model.submit() } }
                     .buttonStyle(.primary)
@@ -218,6 +224,16 @@ struct EvidenceCaptureSheet: View {
         .padding(.horizontal, Theme.Spacing.md)
         .padding(.vertical, Theme.Spacing.sm)
         .background(Theme.Palette.background)
+    }
+
+    /// UI tests: a generated image, since simulators have no camera or seeded photo library.
+    private static func samplePhoto() -> UIImage {
+        UIGraphicsImageRenderer(size: CGSize(width: 800, height: 600)).image { context in
+            UIColor.darkGray.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 800, height: 600))
+            ("SAMPLE EVIDENCE" as NSString).draw(at: CGPoint(x: 220, y: 280),
+                                                 withAttributes: [.font: UIFont.boldSystemFont(ofSize: 40), .foregroundColor: UIColor.white])
+        }
     }
 
     private func openCamera() async {

@@ -176,6 +176,6 @@ final class SessionStore {
 /// the profile and picks that up. In demo mode this random value is final.
 enum ConditionAssignment {
     static func provisional() -> TrackingCondition {
-        Bool.random() ? .manual : .aiAssisted
+        AppConfiguration.current.forcedCondition ?? (Bool.random() ? .manual : .aiAssisted)
     }
 }

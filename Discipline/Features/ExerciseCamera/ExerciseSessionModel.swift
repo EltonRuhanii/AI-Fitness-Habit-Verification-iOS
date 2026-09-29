@@ -34,7 +34,7 @@ final class ExerciseSessionModel {
     }
 
     let task: AccountabilityTask
-    let camera = PoseCamera()
+    let camera: PoseSource
 
     private(set) var stage: Stage = .preparing
     private(set) var update: ExerciseUpdate?
@@ -53,7 +53,8 @@ final class ExerciseSessionModel {
     private let repository: ExerciseSessionRepository
     private var frameTask: Task<Void, Never>?
 
-    init(task: AccountabilityTask, store: HabitsStore, repository: ExerciseSessionRepository) {
+    init(task: AccountabilityTask, store: HabitsStore, repository: ExerciseSessionRepository, source: PoseSource = PoseCamera()) {
+        self.camera = source
         let mode = UserDefaults.standard.string(forKey: Self.modeKey).flatMap(CountingMode.init(rawValue:)) ?? .face
         let engine = Self.makeEngine(for: mode)
         self.task = task
@@ -102,15 +103,17 @@ final class ExerciseSessionModel {
 
     func start() async {
         guard stage == .preparing else { return }
-        switch await CameraPermission.request() {
-        case .granted:
-            break
-        case .denied:
-            stage = .failed("Camera access is turned off. Enable it in Settings to count your repetitions.")
-            return
-        case .unavailable:
-            stage = .failed("This device has no camera available for counting repetitions.")
-            return
+        if camera.requiresCameraPermission {
+            switch await CameraPermission.request() {
+            case .granted:
+                break
+            case .denied:
+                stage = .failed("Camera access is turned off. Enable it in Settings to count your repetitions.")
+                return
+            case .unavailable:
+                stage = .failed("This device has no camera available for counting repetitions.")
+                return
+            }
         }
 
         do {
