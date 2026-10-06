@@ -79,18 +79,24 @@ public struct SUSResponse: Codable, Identifiable, Equatable, Sendable {
 }
 
 extension ResearchCSV {
-    public static let usabilityHeader = ["participant_id", "condition", "questionnaire", "submitted_at", "challenge_day"]
-        + (1...10).map { "q\($0)" } + ["sus_score"]
+    public static let usabilityHeader: [String] = [
+        "participant_id", "condition", "questionnaire", "submitted_at", "challenge_day",
+        "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "sus_score"
+    ]
 
     public static func usability(_ responses: [SUSResponse]) -> String {
         let iso = ISO8601DateFormatter()
         let rows = responses
             .sorted { ($0.participantId, $0.submittedAt) < ($1.participantId, $1.submittedAt) }
             .map { r -> [String] in
-                [r.participantId, r.trackingCondition.rawValue, r.questionnaireVersion, iso.string(from: r.submittedAt),
-                 r.challengeDay.map(String.init) ?? ""]
-                    + r.responses.map(String.init)
-                    + [SUSQuestionnaire.score(r.responses).map { String(format: "%.1f", $0) } ?? ""]
+                let challengeDay: String = r.challengeDay.map { String($0) } ?? ""
+                let answers: [String] = r.responses.map { String($0) }
+                let score: String = SUSQuestionnaire.score(r.responses).map { String(format: "%.1f", $0) } ?? ""
+                var row: [String] = [r.participantId, r.trackingCondition.rawValue, r.questionnaireVersion,
+                                     iso.string(from: r.submittedAt), challengeDay]
+                row.append(contentsOf: answers)
+                row.append(score)
+                return row
             }
         return encode(header: usabilityHeader, rows: rows)
     }
