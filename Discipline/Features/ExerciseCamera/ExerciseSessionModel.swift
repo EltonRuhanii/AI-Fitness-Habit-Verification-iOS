@@ -52,8 +52,12 @@ final class ExerciseSessionModel {
     private let store: HabitsStore
     private let repository: ExerciseSessionRepository
     private var frameTask: Task<Void, Never>?
+    private let performance: PerformanceLog
+    private var frameMeter = FrameRateMeter()
 
-    init(task: AccountabilityTask, store: HabitsStore, repository: ExerciseSessionRepository, source: PoseSource = PoseCamera()) {
+    init(task: AccountabilityTask, store: HabitsStore, repository: ExerciseSessionRepository, performance: PerformanceLog,
+         source: PoseSource = PoseCamera()) {
+        self.performance = performance
         self.camera = source
         let mode = UserDefaults.standard.string(forKey: Self.modeKey).flatMap(CountingMode.init(rawValue:)) ?? .face
         let engine = Self.makeEngine(for: mode)
@@ -141,6 +145,7 @@ final class ExerciseSessionModel {
 
     private func handle(_ frame: PoseFrame) {
         guard stage == .running else { return }
+        frameMeter.record(frame)
         landmarks = frame.landmarks
         face = frame.face
         imageAspect = frame.aspectRatio
@@ -168,6 +173,7 @@ final class ExerciseSessionModel {
         camera.stop()
         camera.finishStream()
         UIApplication.shared.isIdleTimerDisabled = false
+        recordPerformance()
 
         let session = recorder.finish(interrupted: interrupted)
         // Sessions with no repetitions at all carry no information; don't store them.
@@ -180,5 +186,16 @@ final class ExerciseSessionModel {
             }
         }
         stage = .finished(session)
+    }
+
+    /// Frame rate and Vision time for the performance analysis (real camera sessions only).
+    private func recordPerformance() {
+        guard camera is PoseCamera else { return }
+        if let fps = frameMeter.framesPerSecond {
+            performance.record(.cameraFrameRate, fps, context: mode.rawValue)
+        }
+        if let processing = frameMeter.meanProcessingMilliseconds {
+            performance.record(.frameProcessing, processing, context: mode.rawValue)
+        }
     }
 }

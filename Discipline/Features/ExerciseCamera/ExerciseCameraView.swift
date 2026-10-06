@@ -10,7 +10,8 @@ struct ExerciseCameraView: View {
 
     init(task: AccountabilityTask, store: HabitsStore, container: AppContainer) {
         let source: PoseSource = container.configuration.isUITesting ? ScriptedPoseSource() : PoseCamera()
-        _model = State(initialValue: ExerciseSessionModel(task: task, store: store, repository: container.exerciseSessions, source: source))
+        _model = State(initialValue: ExerciseSessionModel(task: task, store: store, repository: container.exerciseSessions,
+                                                                performance: container.performance, source: source))
     }
 
     var body: some View {

@@ -184,6 +184,11 @@ struct ResearchDashboardView: View {
                 try events.write(to: url, atomically: true, encoding: .utf8)
                 files.append(url)
             }
+            if let usability = export.usabilityCSV {
+                let url = directory.appendingPathComponent("discipline-usability-sus-\(stamp).csv")
+                try usability.write(to: url, atomically: true, encoding: .utf8)
+                files.append(url)
+            }
             exportFiles = files
         } catch {
             errorMessage = AppError.from(error).localizedDescription

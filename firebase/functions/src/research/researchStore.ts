@@ -2,7 +2,7 @@ import { getFirestore, Timestamp, type DocumentData, type Firestore } from "fire
 import { getStorage } from "firebase-admin/storage";
 import { assignForDesign, initialAssignmentState, STUDY_DESIGN, type AssignmentState } from "./assignment";
 import type { Participant, ParticipantData, ResearchStore } from "./jobs";
-import type { Condition, DailyRecord } from "./records";
+import type { Condition, DailyRecord, UsabilityResponse } from "./records";
 import { DEFAULT_RULES, type ChallengeInput, type Rules } from "./resolver";
 
 const toDate = (value: unknown): Date | undefined => (value instanceof Timestamp ? value.toDate() : undefined);
@@ -79,6 +79,15 @@ export class FirestoreResearchStore implements ResearchStore {
     const snapshot = await this.db.collection("dailyRecords").get();
     return snapshot.docs.map((d) => d.data() as DailyRecord);
   }
+
+  async allUsabilityResponses(): Promise<UsabilityResponse[]> {
+    const snapshot = await this.db.collection("usabilityResponses").get();
+    return snapshot.docs.map((d) => {
+      const data = d.data();
+      const submittedAt = data.submittedAt instanceof Timestamp ? data.submittedAt.toDate() : new Date(data.submittedAt);
+      return { ...data, submittedAt } as UsabilityResponse;
+    });
+  }
 }
 
 /** Assigns the experimental condition for a new profile (idempotent). */
@@ -116,6 +125,8 @@ export async function deleteUserData(db: Firestore, uid: string): Promise<void> 
   if (participantId) {
     const records = await db.collection("dailyRecords").where("participantId", "==", participantId).get();
     records.docs.forEach((doc) => writer.delete(doc.ref));
+    const usability = await db.collection("usabilityResponses").where("participantId", "==", participantId).get();
+    usability.docs.forEach((doc) => writer.delete(doc.ref));
   }
   writer.delete(db.collection("users").doc(uid));
   await writer.close();

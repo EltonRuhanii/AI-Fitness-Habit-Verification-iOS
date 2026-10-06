@@ -28,11 +28,14 @@ final class EvidenceFlowModel {
 
     private let store: HabitsStore
     private let evidenceService: EvidenceService
+    private let performance: PerformanceLog
     private let verificationService: AIVerificationService
     private var submittedEvidenceId: String?
 
-    init(habit: Habit, store: HabitsStore, evidence: EvidenceService, verification: AIVerificationService) {
+    init(habit: Habit, store: HabitsStore, evidence: EvidenceService, verification: AIVerificationService,
+         performance: PerformanceLog) {
         self.habit = habit
+        self.performance = performance
         self.store = store
         self.evidenceService = evidence
         self.verificationService = verification
@@ -72,7 +75,9 @@ final class EvidenceFlowModel {
                 storagePath: "evidence/\(store.userId)/\(evidenceId).jpg",
                 captureSource: captureSource
             )
-            try await evidenceService.submit(jpeg: jpeg, evidence: evidence, completion: completion)
+            try await performance.measure(.evidenceUpload, context: "\(jpeg.count / 1024) KB") {
+                try await evidenceService.submit(jpeg: jpeg, evidence: evidence, completion: completion)
+            }
             submittedEvidenceId = evidenceId
             await verify()
         } catch {
@@ -84,7 +89,9 @@ final class EvidenceFlowModel {
         guard let evidenceId = submittedEvidenceId else { return }
         phase = .verifying
         do {
-            let result = try await verificationService.verify(evidenceId: evidenceId)
+            let result = try await performance.measure(.aiVerification, context: providerDescription) {
+                try await verificationService.verify(evidenceId: evidenceId)
+            }
             phase = .finished(result)
             if result.status == .verified { store.noteCompletionEvent() }
         } catch {

@@ -7,7 +7,7 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as functionsV1 from "firebase-functions/v1";
 import { getFirestore } from "firebase-admin/firestore";
 import { refreshAllParticipants } from "./research/jobs";
-import { dailyCsv, eventsCsv, type EventRow } from "./research/records";
+import { dailyCsv, eventsCsv, usabilityCsv, type EventRow } from "./research/records";
 import { assignCondition, deleteUserData, FirestoreResearchStore } from "./research/researchStore";
 import { logger } from "firebase-functions";
 import { defineSecret, defineString } from "firebase-functions/params";
@@ -97,7 +97,7 @@ export const refreshDailyRecords = onSchedule({ schedule: "every day 04:00", tim
 });
 
 /**
- * Researcher-only: anonymous CSV exports (daily records and completion events).
+ * Researcher-only: anonymous CSV exports (daily records, completion events and SUS responses).
  * Requires the `researcher: true` custom claim.
  */
 export const exportResearchCsv = onCall({ timeoutSeconds: 300, memory: "1GiB" }, async (request) => {
@@ -127,7 +127,9 @@ export const exportResearchCsv = onCall({ timeoutSeconds: 300, memory: "1GiB" },
       });
     }
   }
-  return { daily: dailyCsv(records), events: eventsCsv(events), generatedAt: now.getTime() };
+  const consented = new Set((await store.participants()).filter((p) => p.consented).map((p) => p.participantId));
+  const usability = (await store.allUsabilityResponses()).filter((r) => consented.has(r.participantId));
+  return { daily: dailyCsv(records), events: eventsCsv(events), usability: usabilityCsv(usability), generatedAt: now.getTime() };
 });
 
 /** Deletes all of a participant's data, photos and research records when their account is deleted. */

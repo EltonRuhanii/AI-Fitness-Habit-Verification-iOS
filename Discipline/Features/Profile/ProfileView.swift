@@ -34,6 +34,12 @@ struct ProfileView: View {
                                 .textSelection(.enabled)
                         }
                         LabeledContent("Tracking mode", value: profile.trackingCondition.displayName)
+                        NavigationLink {
+                            UsabilityQuestionnaireView()
+                        } label: {
+                            Label("Usability questionnaire", systemImage: "list.bullet.clipboard")
+                        }
+                        .accessibilityIdentifier("profile.sus")
                     }
                 }
 
@@ -115,7 +121,10 @@ struct ProfileView: View {
             return FirebaseResearchService()
         }
         let participantId = session.profile?.participantId ?? "P-DEMO"
-        return LocalResearchService { [store] in store.localResearchRecords(participantId: participantId) }
+        return LocalResearchService(
+            records: { [store] in store.localResearchRecords(participantId: participantId) },
+            usability: { [container] in container.usability.localResponses() ?? [] }
+        )
     }
 }
 

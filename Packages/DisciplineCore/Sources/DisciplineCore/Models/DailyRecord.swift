@@ -109,4 +109,5 @@ public enum Collections {
     public static let accountabilityTasks = "accountabilityTasks"
     public static let exerciseSessions = "exerciseSessions"
     public static let dailyRecords = "dailyRecords"
+    public static let usabilityResponses = "usabilityResponses"
 }

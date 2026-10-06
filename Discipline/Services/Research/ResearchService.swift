@@ -7,6 +7,8 @@ struct ResearchExport: Sendable {
     let dailyCSV: String
     /// Completion-level events; only available from the study backend.
     let eventsCSV: String?
+    /// System Usability Scale responses (score recomputed from the answers).
+    let usabilityCSV: String?
 }
 
 @MainActor
@@ -48,7 +50,7 @@ final class FirebaseResearchService: ResearchService {
             guard let data = result.data as? [String: Any], let daily = data["daily"] as? String else {
                 throw AppError.unknown("The export couldn't be read.")
             }
-            return ResearchExport(dailyCSV: daily, eventsCSV: data["events"] as? String)
+            return ResearchExport(dailyCSV: daily, eventsCSV: data["events"] as? String, usabilityCSV: data["usability"] as? String)
         } catch {
             throw AppError.from(error)
         }
@@ -60,9 +62,11 @@ final class FirebaseResearchService: ResearchService {
 @MainActor
 final class LocalResearchService: ResearchService {
     private let records: () -> [DailyRecord]
+    private let usability: () -> [SUSResponse]
 
-    init(records: @escaping () -> [DailyRecord]) {
+    init(records: @escaping () -> [DailyRecord], usability: @escaping () -> [SUSResponse] = { [] }) {
         self.records = records
+        self.usability = usability
     }
 
     let isStudyData = false
@@ -72,6 +76,8 @@ final class LocalResearchService: ResearchService {
     }
 
     func export() async throws -> ResearchExport {
-        ResearchExport(dailyCSV: ResearchCSV.daily(records()), eventsCSV: nil)
+        let responses = usability()
+        return ResearchExport(dailyCSV: ResearchCSV.daily(records()), eventsCSV: nil,
+                              usabilityCSV: responses.isEmpty ? nil : ResearchCSV.usability(responses))
     }
 }

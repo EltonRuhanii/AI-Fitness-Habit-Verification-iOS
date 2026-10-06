@@ -16,10 +16,12 @@ final class AppContainer {
     let challenges: ChallengeRepository
     let evidence: EvidenceService
     let verification: AIVerificationService
+    let usability: UsabilityRepository
     let sync: SyncMonitor
     let notifications = NotificationScheduler()
     let notificationPreferences = NotificationPreferencesStore()
     let connectivity = ConnectivityMonitor()
+    let performance = PerformanceLog()
 
     init(
         configuration: AppConfiguration,
@@ -32,6 +34,7 @@ final class AppContainer {
         challenges: ChallengeRepository,
         evidence: EvidenceService,
         verification: AIVerificationService,
+        usability: UsabilityRepository,
         sync: SyncMonitor
     ) {
         self.configuration = configuration
@@ -44,6 +47,7 @@ final class AppContainer {
         self.challenges = challenges
         self.evidence = evidence
         self.verification = verification
+        self.usability = usability
         self.sync = sync
     }
 
@@ -63,6 +67,7 @@ final class AppContainer {
                 challenges: FirestoreChallengeRepository(monitor: sync),
                 evidence: FirebaseEvidenceService(),
                 verification: FirebaseVerificationService(),
+                usability: FirestoreUsabilityRepository(monitor: sync),
                 sync: sync
             )
         case .demo:
@@ -91,6 +96,7 @@ final class AppContainer {
             challenges: DemoChallengeRepository(),
             evidence: evidenceBackend,
             verification: evidenceBackend,
+            usability: DemoUsabilityRepository(),
             sync: sync
         )
     }

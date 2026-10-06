@@ -15,7 +15,8 @@ struct EvidenceCaptureSheet: View {
 
     init(habit: Habit, store: HabitsStore, container: AppContainer) {
         _model = State(initialValue: EvidenceFlowModel(
-            habit: habit, store: store, evidence: container.evidence, verification: container.verification
+            habit: habit, store: store, evidence: container.evidence, verification: container.verification,
+            performance: container.performance
         ))
     }
 

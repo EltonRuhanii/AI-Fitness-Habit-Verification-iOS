@@ -176,6 +176,29 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---------- usability questionnaire (SUS) ----------
+    // Pseudonymous (participant ID, no account ID), create-only, and readable only by
+    // researchers (through the export, which recomputes the score from the answers).
+    function isLikert(value) { return value is int && value >= 1 && value <= 5; }
+    match /usabilityResponses/{responseId} {
+      allow read: if isResearcher();
+      allow create: if signedIn()
+        && idMatches(responseId)
+        && request.resource.data.participantId == myProfile().participantId
+        && request.resource.data.trackingCondition == myProfile().trackingCondition
+        && !('userId' in request.resource.data)
+        && request.resource.data.responses is list
+        && request.resource.data.responses.size() == 10
+        && isLikert(request.resource.data.responses[0]) && isLikert(request.resource.data.responses[1])
+        && isLikert(request.resource.data.responses[2]) && isLikert(request.resource.data.responses[3])
+        && isLikert(request.resource.data.responses[4]) && isLikert(request.resource.data.responses[5])
+        && isLikert(request.resource.data.responses[6]) && isLikert(request.resource.data.responses[7])
+        && isLikert(request.resource.data.responses[8]) && isLikert(request.resource.data.responses[9])
+        && request.resource.data.score is number
+        && request.resource.data.score >= 0 && request.resource.data.score <= 100;
+      allow update, delete: if false;
+    }
+
     // ---------- research records (server-written) ----------
     match /dailyRecords/{recordId} {
       allow read: if isResearcher()

@@ -1,4 +1,5 @@
 import AVFoundation
+import QuartzCore
 import Vision
 import DisciplineCore
 
@@ -103,6 +104,7 @@ final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, 
         let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
         guard timestamp - lastAnalysis >= minInterval, let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         lastAnalysis = timestamp
+        let started = CACurrentMediaTime()
 
         // Buffers arrive in landscape sensor orientation. `.leftMirrored` makes Vision analyse the
         // upright, mirrored portrait image the user sees in the front-camera preview.
@@ -111,8 +113,9 @@ final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, 
         let aspectRatio = Double(CVPixelBufferGetHeight(pixelBuffer)) / Double(max(CVPixelBufferGetWidth(pixelBuffer), 1))
 
         if mode == .face {
+            let face = detectFace(with: handler)
             continuation.yield(PoseFrame(timestamp: timestamp, landmarks: [:], aspectRatio: aspectRatio,
-                                         face: detectFace(with: handler)))
+                                         face: face, processingDuration: CACurrentMediaTime() - started))
             return
         }
 
@@ -130,7 +133,8 @@ final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, 
         } catch {
             // A failed analysis is reported as "no body" for this frame; the engine handles gaps.
         }
-        continuation.yield(PoseFrame(timestamp: timestamp, landmarks: landmarks, aspectRatio: aspectRatio))
+        continuation.yield(PoseFrame(timestamp: timestamp, landmarks: landmarks, aspectRatio: aspectRatio,
+                                     processingDuration: CACurrentMediaTime() - started))
     }
 
     /// The largest detected face (the participant's, closest to the phone).

@@ -224,6 +224,26 @@ test('daily records: researchers read, participants read own, nobody writes', as
   await assertFails(setDoc(doc(alice(), 'dailyRecords/P-ABCDEFGH23_2026-09-29'), { participantId: 'P-ABCDEFGH23' }));
 });
 
+// ---------- usability questionnaire ----------
+test('SUS responses: own participant id, valid answers, create-only, researcher-read', async () => {
+  await seed('users/alice', profile('alice'));
+  const sus = (overrides = {}) => ({
+    id: 's1', participantId: 'P-ABCDEFGH23', trackingCondition: 'aiAssisted', questionnaireVersion: 'sus-v1',
+    responses: [4, 2, 4, 1, 4, 2, 5, 1, 4, 2], score: 82.5, challengeDay: 30, submittedAt: new Date(), ...overrides,
+  });
+  await assertSucceeds(setDoc(doc(alice(), 'usabilityResponses/s1'), sus()));
+  await assertFails(setDoc(doc(alice(), 'usabilityResponses/s1'), sus({ score: 90 })), 'no edits');
+  await assertFails(getDoc(doc(alice(), 'usabilityResponses/s1')), 'participants cannot read');
+  await assertFails(deleteDoc(doc(alice(), 'usabilityResponses/s1')));
+  await assertFails(setDoc(doc(alice(), 'usabilityResponses/s2'), sus({ id: 's2', participantId: 'P-OTHER22222' })));
+  await assertFails(setDoc(doc(alice(), 'usabilityResponses/s3'), sus({ id: 's3', responses: [4, 2, 4] })));
+  await assertFails(setDoc(doc(alice(), 'usabilityResponses/s4'), sus({ id: 's4', responses: [4, 2, 4, 1, 4, 2, 5, 1, 4, 9] })));
+  await assertFails(setDoc(doc(alice(), 'usabilityResponses/s5'), sus({ id: 's5', userId: 'alice' })), 'no account id');
+  await assertFails(setDoc(doc(alice(), 'usabilityResponses/s6'), sus({ id: 's6', trackingCondition: 'manual' })));
+  const researcher = env.authenticatedContext('r', { researcher: true }).firestore();
+  await assertSucceeds(getDoc(doc(researcher, 'usabilityResponses/s1')));
+});
+
 // ---------- storage ----------
 test('evidence photos are private, JPEG-only and immutable', async () => {
   const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);

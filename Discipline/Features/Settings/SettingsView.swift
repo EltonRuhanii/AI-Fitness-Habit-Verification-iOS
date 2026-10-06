@@ -30,6 +30,8 @@ struct SettingsView: View {
             Section("Privacy & AI") {
                 NavigationLink("How your data is used") { PrivacyInfoView() }
                 NavigationLink("About AI verification") { AIVerificationInfoView() }
+                NavigationLink("Performance") { PerformanceView() }
+                    .accessibilityIdentifier("settings.performance")
             }
 
             Section {

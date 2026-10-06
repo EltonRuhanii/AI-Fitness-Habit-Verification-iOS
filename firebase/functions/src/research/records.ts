@@ -155,3 +155,45 @@ export function eventsCsv(events: EventRow[]): string {
     ]);
   return encode(EVENTS_HEADER, rows);
 }
+
+// ---------- System Usability Scale ----------
+
+export interface UsabilityResponse {
+  participantId: string;
+  trackingCondition: Condition;
+  questionnaireVersion: string;
+  responses: number[];
+  challengeDay?: number | null;
+  submittedAt: Date;
+}
+
+export const USABILITY_HEADER = [
+  "participant_id", "condition", "questionnaire", "submitted_at", "challenge_day",
+  "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "sus_score",
+];
+
+/** Brooke's SUS score (0–100), mirroring `SUSQuestionnaire.score` in DisciplineCore. */
+export function susScore(responses: number[]): number | null {
+  if (responses.length !== 10 || !responses.every((r) => Number.isInteger(r) && r >= 1 && r <= 5)) return null;
+  const sum = responses.reduce((total, r, i) => total + (i % 2 === 0 ? r - 1 : 5 - r), 0);
+  return sum * 2.5;
+}
+
+/** The client's own score is never trusted: it is recomputed from the answers. */
+export function usabilityCsv(responses: UsabilityResponse[]): string {
+  const rows = [...responses]
+    .sort((a, b) => (a.participantId === b.participantId
+      ? a.submittedAt.getTime() - b.submittedAt.getTime()
+      : a.participantId < b.participantId ? -1 : 1))
+    .map((r) => {
+      const score = susScore(r.responses);
+      return [
+        r.participantId, r.trackingCondition, r.questionnaireVersion,
+        r.submittedAt.toISOString().replace(/\.\d{3}Z$/, "Z"),
+        r.challengeDay == null ? "" : `${r.challengeDay}`,
+        ...r.responses.map((x) => `${x}`),
+        score == null ? "" : score.toFixed(1),
+      ];
+    });
+  return encode(USABILITY_HEADER, rows);
+}

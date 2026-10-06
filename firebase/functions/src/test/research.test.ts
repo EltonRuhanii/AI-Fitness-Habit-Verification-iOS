@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 import { assignForDesign, initialAssignmentState, nextAssignment, shuffledBlock, STUDY_DESIGN, type AssignmentState } from "../research/assignment";
-import { buildDailyRecords, DAILY_HEADER, dailyCsv, eventsCsv } from "../research/records";
+import { buildDailyRecords, DAILY_HEADER, dailyCsv, eventsCsv, susScore, usabilityCsv } from "../research/records";
 import {
   addDays, DEFAULT_RULES, startOfWeek, summarizeHistory, weekday,
   type ChallengeInput, type CompletionInput, type HabitInput, type Rules, type TaskInput,
@@ -170,4 +170,25 @@ test("selectRecordsToWrite keeps the rewrite window", () => {
   const rec = (day: string) => ({ day } as never);
   const chosen = selectRecordsToWrite([rec("2026-09-01"), rec("2026-09-20")], new Set(["2026-09-01", "2026-09-20"]), "2026-09-28");
   assert.deepEqual(chosen.map((r: { day: string }) => r.day), ["2026-09-20"]);
+});
+
+// ---------- System Usability Scale (same vectors as UsabilityTests.swift) ----------
+
+test("SUS score follows Brooke's formula", () => {
+  assert.equal(susScore([5, 1, 5, 1, 5, 1, 5, 1, 5, 1]), 100);
+  assert.equal(susScore([1, 5, 1, 5, 1, 5, 1, 5, 1, 5]), 0);
+  assert.equal(susScore(Array(10).fill(3)), 50);
+  assert.equal(susScore([4, 2, 4, 1, 4, 2, 5, 1, 4, 2]), 82.5);
+  assert.equal(susScore([3, 3, 3]), null);
+  assert.equal(susScore([3, 3, 3, 3, 3, 3, 3, 3, 3, 6]), null);
+});
+
+test("SUS export recomputes the score and matches the Swift CSV", () => {
+  const csv = usabilityCsv([{
+    participantId: "P-ABC", trackingCondition: "aiAssisted", questionnaireVersion: "sus-v1",
+    responses: [4, 2, 4, 1, 4, 2, 5, 1, 4, 2], challengeDay: 30, submittedAt: new Date(0),
+  }]);
+  const lines = csv.trim().split("\n");
+  assert.equal(lines.length, 2);
+  assert.equal(lines[1], "P-ABC,aiAssisted,sus-v1,1970-01-01T00:00:00Z,30,4,2,4,1,4,2,5,1,4,2,82.5");
 });

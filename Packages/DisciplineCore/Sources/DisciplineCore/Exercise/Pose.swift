@@ -62,12 +62,16 @@ public struct PoseFrame: Sendable {
     public let aspectRatio: Double
     /// Largest detected face, when face analysis is used.
     public let face: FaceBox?
+    /// Time the on-device analysis of this frame took (performance measurements).
+    public let processingDuration: TimeInterval?
 
-    public init(timestamp: TimeInterval, landmarks: [Joint: Landmark], aspectRatio: Double, face: FaceBox? = nil) {
+    public init(timestamp: TimeInterval, landmarks: [Joint: Landmark], aspectRatio: Double, face: FaceBox? = nil,
+                processingDuration: TimeInterval? = nil) {
         self.timestamp = timestamp
         self.landmarks = landmarks
         self.aspectRatio = aspectRatio
         self.face = face
+        self.processingDuration = processingDuration
     }
 
     /// The landmark in aspect-corrected space (x scaled by the aspect ratio, y unchanged), if
