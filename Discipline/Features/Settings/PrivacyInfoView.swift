@@ -6,8 +6,9 @@ struct PrivacyInfoView: View {
     var body: some View {
         InfoPage(title: "How your data is used", sections: InfoSection.list([
             ("What's stored", "Your habits, when you complete or skip them, accountability tasks and exercise sessions (repetition counts, not video). Everything is private to your account."),
-            ("Photos", "Evidence photos are downscaled and stripped of location data on your phone, then stored in private storage only your account can access. They're sent to the verification service for assessment and never made public. You can delete them in Settings."),
-            ("Exercise camera", "Repetition counting runs entirely on your phone. Video is never recorded or uploaded; only the number of repetitions, their timing and the measured angles or distances are stored."),
+            ("Photos", "Evidence photos are downscaled and stripped of location data on your phone, then stored in private storage only your account can access. For assessment they're sent by our server to an external AI provider (Anthropic), which processes them under its API terms; they're never made public. You can delete them in Settings."),
+            ("Exercise camera", "Repetition counting runs entirely on your phone. Video is never recorded or uploaded; only the number of repetitions, their timing and the measured angles or distances are stored. Face mode only detects where a face is in the picture to measure its size; it never recognises or identifies anyone."),
+            ("Questionnaire", "Usability questionnaire answers are stored under your participant ID only, never your account."),
             ("Research", "If you consented, a nightly job creates daily summary records (counts only) under a random participant ID, for example \"P-7K2M9QX4RT\". They never contain your name, email, habit names or photos. Researchers only see these pseudonymous records and aggregates."),
             ("Your choices", "Delete your evidence photos in Settings, or delete your account to remove everything, including your research records.")
         ]))

@@ -35,7 +35,7 @@ struct RulesAcceptanceView: View {
                     AgreementRow(
                         isOn: $understandsAI,
                         title: "Automated verification",
-                        text: "I understand that AI photo checks and camera rep counting are automated assessments against defined criteria. They can make mistakes and are not proof of what I did.",
+                        text: "I understand that AI photo checks and camera rep counting are automated assessments against defined criteria. They can make mistakes and are not proof of what I did. My evidence photos are assessed by an external AI provider (Anthropic).",
                         identifier: "rules.ai"
                     )
                     AgreementRow(

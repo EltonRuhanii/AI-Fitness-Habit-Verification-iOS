@@ -6,7 +6,9 @@ Discipline is the practical implementation for a university thesis investigating
 
 > *Does AI-assisted evidence verification improve user adherence and accountability compared with conventional self-reported habit tracking?*
 
-Participants commit to habits (e.g. gym 4×/week, reading 100 pages/week). Each day, every due commitment must be **completed** (self-reported or with verified evidence) or **explicitly skipped** and resolved through an agreed **accountability task** (e.g. 50 push-ups counted by on-device computer vision). Resolved days build a streak. The app records behavioral events so that the **manual** and **AI-assisted** conditions can be compared.
+The app runs as a single **90-day challenge**. Each participant sets up a fixed routine (workout days, run days, optional extras such as cold plunges) and picks **two new skills** to practise for **at least an hour every day**. Every main activity is proven with a photo that an AI model assesses against defined criteria. If any main activity of a day is left unfinished, the streak restarts from 0; the only way out is an explicit **skip** resolved by an accountability task (50 push-ups counted by on-device computer vision). The app records behavioural events for the research analysis.
+
+All participants currently use **AI-assisted** tracking (study design `ai-only`). The two-arm design (manual self-report vs. AI-assisted, permuted-block randomization) is still implemented and can be re-enabled on the server (see [Research data](#research-data)).
 
 > ⚠️ Automated verification is an *assessment against defined criteria*, not proof. The app never claims otherwise.
 
@@ -27,6 +29,7 @@ Discipline/                  iOS app target
   Services/                  Protocols + Firebase and demo implementations
   Features/                  One folder per feature (views + view models)
   Resources/                 Asset catalog
+DisciplineWidget/            Home-screen widget extension (WidgetKit)
 Packages/DisciplineCore/     Platform-independent domain logic + unit tests
 firebase/                    Firestore/Storage security rules, indexes, (Phase 5+) Cloud Functions
 docs/                        Roadmap and technical/thesis documentation
@@ -41,9 +44,14 @@ docs/                        Roadmap and technical/thesis documentation
 ## Running the app
 
 1. Open `Discipline.xcodeproj`. Xcode resolves the Firebase Swift package automatically.
-2. Select the **Discipline** scheme and an iPhone simulator, then press Run.
+2. Choose a scheme and an iPhone simulator, then press Run:
 
-Without `GoogleService-Info.plist`, the app starts in **demo mode**: local on-device services with a visible "DEMO MODE" badge. Nothing is sent to any server.
+| Scheme | Starts with |
+|---|---|
+| **Discipline** | A clean app: register, onboard, then set up your 90-day challenge. Uses Firebase when `GoogleService-Info.plist` is present, otherwise demo mode. |
+| **Discipline Demo** | Demo mode, signed in automatically, with a challenge already 45 days in: a 24-day streak, two missed days, verified/rejected/uncertain AI results and two skips resolved with push-ups. Resets on every launch (untick `-resetLocalState` in the scheme to keep changes). |
+
+Without `GoogleService-Info.plist`, the app starts in **demo mode**: local on-device services with a visible "DEMO MODE" badge. Nothing is sent to any server. In demo mode, the challenge setup screen also offers **Load a demo challenge**.
 
 Launch arguments (Scheme → Run → Arguments):
 
@@ -51,9 +59,10 @@ Launch arguments (Scheme → Run → Arguments):
 |---|---|
 | `-demoMode` | Force demo mode even when Firebase is configured |
 | `-resetLocalState` | Wipe demo data and preferences on launch (used by UI tests) |
-| `-seedDemoData` | Load five weeks of generated demo history on a fresh demo account (also available in Settings → Demo tools) |
+| `-seedDemoData` | Demo only: load a generated challenge (day 46 of 90) on an account without a challenge |
+| `-demoAutoSignIn` | Demo only: sign in to a local demo account and skip onboarding |
 | `-uiTesting` | UI-test mode (implies demo): sample photo, stub verifier, scripted push-up session |
-| `-forceCondition manual\|aiAssisted` | Demo only: fix the experimental condition |
+| `-forceCondition manual\|aiAssisted` | Demo only: fix the experimental condition (default: `aiAssisted`) |
 
 ## Firebase setup
 
@@ -162,28 +171,43 @@ Front camera (AVFoundation, 720p) → Apple Vision VNDetectHumanBodyPoseRequest 
 - **Milestones** (3, 7, 14, 30, 60, 75, 100) are display-only and never feed into research measures.
 - **Archiving** a habit sets its end date, so it keeps its history but stops being due.
 
-### Challenges
+### The 90-day challenge
 
-A challenge bundles a duration (7–365 days), its habits and a rule set. Participants start one from the **75 Day Discipline** template (gym 4×/week, running 2×/week, reading 100 pages/week, cold plunge 3×/week, daily progress photo) or build a **custom** challenge from their existing habits.
+The app only runs in challenge mode. Without an active or upcoming challenge, a setup flow covers the whole app:
 
-- **Participant-configurable rules:** streak on/off, every commitment required, skipping allowed plus default push-up consequence, missed day breaks vs. pauses the streak, and whether an uncertain AI result counts.
-- **Study parameters** are shown but locked: AI verification, exercise verification, and the confidence threshold. They are identical for all participants.
-- **Acceptance:** rules must be explicitly accepted (`rulesAcceptedAt`) and are locked once the challenge is active. This is enforced by the Firestore rules, and the demo backend mirrors it.
-- **Scope:** while a challenge is active, its rules govern skipping, counting and the streak, and only its habits and days count toward the streak.
-- **Lifecycle:** there is one active or upcoming challenge at a time. It is marked `completed` after its last day. Abandoning keeps all history and stops its habits from that day.
+1. **Weekly routine:** workout days (at least one) and run days (optional), on fixed weekdays.
+2. **Two new skills** (e.g. Guitar, Spanish): each is due **every day** for **≥ 60 minutes**. Minutes can be logged in several sessions; each session needs a practice photo.
+3. **Extras** (optional): Reading, Cold Plunge, Stretching or Healthy Meal on chosen weekdays.
+4. **Review and accept** the rules, then start today or tomorrow.
+
+`RoutinePlanner` (DisciplineCore) turns the setup into habits and a challenge with fixed, strict rules: every activity is required, a missed day **resets the streak to 0**, every activity needs photo evidence, skipping costs 50 push-ups, and an uncertain AI result counts. Because every activity is tied to fixed weekdays (or every day), each day has a definite list of main activities.
+
+- **Skipping** a session activity skips it for the day; skipping a skill covers the minutes still missing that day. One skip per activity per day.
+- **Acceptance:** the rules are accepted explicitly (`rulesAcceptedAt`) and locked once the challenge is active (Firestore rules; the demo backend mirrors them).
+- **Lifecycle:** the challenge is marked `completed` after day 90. Abandoning keeps all history, stops its activities and returns to setup.
+- Free-form habits, the habit editor and custom challenges were removed from the app when it moved to challenge mode. The domain model still supports them (e.g. weekly targets via the feasibility rule), and older data keeps resolving correctly.
+
+### Home-screen widget
+
+A medium widget shows the **streak** (top right) and the **first three unfinished main activities** of today (left), e.g. "Guitar · 25/60 min" or "Workout · Photo needed". The app writes a small `WidgetSnapshot` to a shared App Group after every change; the widget only renders it. The snapshot also carries tomorrow's activities, so after midnight the widget shows the new day (and a streak of 0 if the previous day wasn't finished) without opening the app.
+
+> App Groups can't be signed by a free (personal) Apple developer team, so the App Group entitlement is applied to **simulator builds only**. On a device without a paid account the widget installs but shows "Open Discipline to see today's activities". With a paid account, set *Code Signing Entitlements* for all SDKs in both targets (`Discipline/Discipline.entitlements`, `DisciplineWidget/DisciplineWidget.entitlements`).
 
 ### Research data
 
-The app is the data-collection instrument for comparing **manual** self-report with **AI-assisted** verification.
+The app is the data-collection instrument for the study.
 
-- **Condition assignment.** A new profile gets a provisional value, which the `onUserProfileCreated` function immediately replaces using **permuted blocks of 4** (two of each condition, shuffled; state in `research/assignment`). Group sizes therefore never differ by more than 2. `conditionAssignedBy` / `conditionAssignedAt` record this, and clients can't change them (security rules). The condition is also copied onto every completion.
+- **Condition assignment.** The server owns the condition (`onUserProfileCreated`). The current design, `STUDY_DESIGN = "ai-only"` in `firebase/functions/src/research/assignment.ts`, assigns everyone `aiAssisted` (`conditionAssignedBy: fixed-ai-assisted`). Setting it to `"permuted-block"` restores the two-arm design: **permuted blocks of 4** (two of each condition, shuffled; state in `research/assignment`), so group sizes never differ by more than 2. Clients can't change the condition or its assignment metadata (security rules), and it is copied onto every completion.
 - **Daily records.** `refreshDailyRecords` (daily at 04:00 UTC) resolves each *consenting* participant's last 120 days in their own time zone. It uses `HistoryResolver`, the same definition of a day the app uses for streaks, ported to TypeScript. Both implementations run the shared vectors in `Tests/DisciplineCoreTests/Fixtures/history-resolution-cases.json`. The job writes `dailyRecords/{participantId}_{day}`, rewriting the last 14 days (which may still change, e.g. pending verification) and backfilling any missing ones. Records contain counts only; field definitions are in `DailyRecord.swift`.
 - **Researcher dashboard** (Profile → Research). Available to accounts with the `researcher` custom claim. It compares conditions on participants, day success rate, commitment adherence, mean current/longest streak, self-reported/verified/rejected/uncertain counts, verification/rejection/uncertain rates, mean AI confidence, and accountability completion. In demo mode the same screen previews your own local data.
 - **CSV export** (`exportResearchCsv`, researcher-only):
   - `daily-records.csv`: one row per participant-day.
   - `events.csv`: one row per completion, with habit *category* (never the name), status, method, verification status and confidence, and accountability task type/target/status.
+  - `usability-sus.csv`: one row per System Usability Scale questionnaire, with the ten answers and the score recomputed on the server.
 
   Participant IDs are pseudonymous. There are no names, emails, habit names or photos.
+- **Usability (SUS).** Profile → Study → *Usability questionnaire*: the ten standard System Usability Scale statements on a 1–5 scale. Responses are stored create-only under the participant ID (no account ID) in `usabilityResponses`, readable only by researchers. Scoring (Brooke) is implemented in Swift and TypeScript with the same test vectors.
+- **Performance.** Settings → *Performance* shows on-device measurements with median, p95 and mean: evidence upload time, AI verification round trip, camera analysis rate (fps) and Vision processing time per frame during push-up sessions. They stay on the device and can be exported as CSV for the performance analysis.
 - **Granting researcher access:**
 
   ```bash
@@ -206,7 +230,7 @@ Local notifications are planned by the pure `NotificationPlanner` (DisciplineCor
 
 - Limits: at most 3 per day, and nothing in quiet hours (22:00–08:00).
 - Each type can be toggled in Settings.
-- Permission is requested when the first habit is created, not at launch.
+- Permission is requested when the challenge is started, not at launch.
 - Verification results are shown in-app when the check finishes. Push notifications for server events would need Firebase Cloud Messaging and aren't used.
 
 ### Offline behaviour
@@ -253,7 +277,7 @@ UI tests (Xcode, simulator): run the **Discipline** scheme's tests (⌘U), or:
 xcodebuild test -project Discipline.xcodeproj -scheme Discipline -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
 
-They cover the two end-to-end flows (evidence → AI result → progress, and skip → push-ups → resolved → streak) using deterministic stand-ins for the camera and AI. See §10 of the technical documentation.
+They cover the two end-to-end flows (90-day setup → skill photo evidence → AI result → progress, and skip a skill → push-ups → resolved → streak) using deterministic stand-ins for the camera and AI. See §10 of the technical documentation.
 
 On Windows, without Xcode:
 
@@ -274,10 +298,12 @@ docker run --rm -v "$PWD:/repo" -w /repo swift:6.1 swift test --package-path Pac
 | `accountabilityTasks` | uuid | client + functions | Consequences of skipping |
 | `exerciseSessions` | uuid | client | Immutable camera sessions with per-rep events |
 | `dailyRecords` | `{participantId}_{day}` | functions | Research snapshot per participant-day |
+| `usabilityResponses` | uuid | client (create once) | Pseudonymous SUS questionnaire answers |
 
 ## Known limitations
 
 - **On-device exercise counts are client-reported.** Pose estimation runs on the participant's phone, so a modified client could forge a session. Rules restrict *who* can write, not whether the reps really happened. App Check is planned as a mitigation. The thesis should treat this as a threat-to-validity.
 - A participant who uses the app during the first seconds after registration, before the server assignment arrives, could log an event under the provisional condition. In practice onboarding takes longer than the assignment.
 - AI photo verification can only assess what is visible in an image. It cannot establish that the participant performed the activity, and it can't reliably detect a reused or borrowed photo. `captureSource` (camera vs. library) is recorded so this can be analysed.
+- **No paid Apple developer account.** HealthKit step tracking, push notifications (APNs/FCM) and TestFlight distribution need a paid account and were dropped. Notifications are local; the widget's App Group works on the simulator only (see above). Free provisioning profiles expire after 7 days.
 - Model outputs are not perfectly deterministic. Each result stores the provider, served model, prompt/criteria version and threshold so results stay attributable. Temperature can't be fixed on current Claude models.

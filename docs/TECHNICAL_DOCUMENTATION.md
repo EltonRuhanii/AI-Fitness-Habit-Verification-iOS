@@ -2,6 +2,8 @@
 
 This document describes the design and implementation of *Discipline*, the iOS application built as the practical part of a thesis on whether **AI-assisted evidence verification improves adherence and accountability compared with conventional self-reported habit tracking**. It is written to be cited and adapted in the thesis. Source locations are given so every claim can be traced to code and tests.
 
+**Product model.** The app runs as a single 90-day challenge: a fixed weekly routine (workouts, runs, optional extras) plus two new skills practised for at least 60 minutes every day. Every main activity is proven with a photo assessed by AI; an unfinished day resets the streak to 0 unless the activity was skipped and the skip resolved with camera-counted push-ups (§6.6).
+
 Contents
 
 1. [System architecture](#1-system-architecture)
@@ -78,12 +80,15 @@ Discipline/
   Core/                configuration, design system, Firebase bootstrap, computer vision
                        (PoseCamera, PoseSource), notifications, persistence (sync, connectivity)
   Services/            Authentication, Users, Habits, Evidence (+ AI verification),
-                       Accountability, Exercise, Challenges, Research
+                       Accountability, Exercise, Challenges, Research (+ SUS), Widget, Performance
   Features/            Authentication, Onboarding, Dashboard, Habits, Evidence, Accountability,
-                       ExerciseCamera, Streak, Challenges, Progress, Profile, Settings, Research
+                       ExerciseCamera, Streak, Challenges (90-day setup), Progress, Profile,
+                       Settings (+ Performance), Research (+ SUS questionnaire)
+DisciplineWidget/      WidgetKit extension: renders the WidgetSnapshot written by the app
 Packages/DisciplineCore/Sources/DisciplineCore/
   Models/  Time/  Habits/  Verification/  Accountability/  Exercise/  Streaks/
-  Challenges/  Research/  Progress/  Notifications/  Demo/  Validation/
+  Challenges/ (incl. RoutinePlanner)  Research/ (incl. SUS, performance)  Progress/
+  Notifications/  Widget/  Demo/  Validation/
 firebase/
   firestore.rules  storage.rules  firestore.indexes.json
   functions/src/   verify, policy, prompt, providers/, accountability, research/
@@ -268,6 +273,7 @@ The design makes simple cheating harder but does not claim to make it impossible
 | `exerciseSessions` | UUID | client (create once) | `accountabilityTaskId`, `exercise`, `verificationMethod`, `engineVersion`, `targetReps`, `validReps`, `invalidReps`, `outcome`, `repetitions[]` |
 | `challenges` | UUID | client | `durationDays`, `startDate`/`endDate`, `rules` (locked once active), `status`, `rulesAcceptedAt`, `templateId` |
 | `dailyRecords` | `{participantId}_{day}` | **server only** | see §8 |
+| `usabilityResponses` | UUID | client (create once) | `participantId`, `trackingCondition`, `questionnaireVersion`, `responses[10]`, `score`, `challengeDay`, `submittedAt`; no account ID (§8.5) |
 | `research/assignment` | fixed | **server only** | permuted-block state |
 
 ### 4.2 Design decisions
@@ -292,7 +298,7 @@ The design makes simple cheating harder but does not claim to make it impossible
 
 ### 5.2 Authorization (security rules)
 
-The rules are in `firebase/firestore.rules` and `firebase/storage.rules`, with 23 emulator tests in `firebase/tests`.
+The rules are in `firebase/firestore.rules` and `firebase/storage.rules`, with 24 emulator tests in `firebase/tests`.
 
 | Asset | Rule |
 |---|---|
@@ -306,6 +312,7 @@ The rules are in `firebase/firestore.rules` and `firebase/storage.rules`, with 2
 | Challenges | Rules, dates and duration locked once active; lifecycle can't be reversed |
 | Habits in an active challenge | Commitment fields (target, frequency, unit, weekdays, start date, required, evidence) locked, so past days can't be re-scored |
 | Daily records | Researchers read all; participants read their own; no client writes |
+| Usability responses | Create-only with the caller's own participant ID and condition, ten answers each 1–5, score 0–100, no account ID; readable only by researchers |
 | Storage | `evidence/{uid}/{file}.jpg` readable only by the owner; JPEG only, < 8 MB, create-only (no overwrite); everything else denied |
 
 ### 5.3 Secrets and privacy
@@ -313,7 +320,10 @@ The rules are in `firebase/firestore.rules` and `firebase/storage.rules`, with 2
 - **Secrets:** the AI provider key lives in Google Secret Manager (`defineSecret`), is used only inside the Cloud Function, and never appears in the app or the repository. `GoogleService-Info.plist` is git-ignored.
 - **Photos:** downscaled and re-encoded on the device, which removes EXIF and GPS data. They are stored privately and can be deleted by the participant at any time.
 - **Research data:** pseudonymous. Participant IDs are random and not derived from identity. Records contain counts only; exports contain no names, emails, habit names or photos.
-- **Account deletion:** the `onUserDeleted` function removes every document, photo and research record of the participant.
+- **Account deletion:** the `onUserDeleted` function removes every document, photo, research record and questionnaire response of the participant.
+- **Face detection, not recognition.** Face-mode push-up counting uses `VNDetectFaceRectanglesRequest`, which only finds *where* a face is in the frame to measure its size. No facial features, templates or identities are computed or stored, and camera frames never leave the device.
+- **Third-party AI processing.** Evidence photos are sent by the Cloud Function to the AI provider (Anthropic) for assessment. This is disclosed in onboarding and in Settings → *About AI verification*, and must be covered by the study's consent form and ethics approval. Photos are downscaled with metadata stripped before upload, and participants can delete them at any time.
+- **Widget data.** The widget reads only a small snapshot (activity names, progress text, streak) from the app's App Group container on the device; it is cleared on sign-out.
 
 The security review and its findings are documented in [SECURITY_REVIEW.md](SECURITY_REVIEW.md).
 
@@ -368,13 +378,26 @@ Milestones (3, 7, 14, 30, 60, 75, 100) are presentation only and never feed back
 
 The app's streak and the server's research records use the **same algorithm**: `HistoryResolver.swift` and `research/resolver.ts`. Both are checked against nine hand-computed history scenarios in `history-resolution-cases.json`: daily, weekly feasibility, weekly amounts, verification states, a strict challenge policy, an expired skip, pause-streak, challenge scoping, and a mid-week start.
 
+### 6.6 The 90-day challenge (`RoutinePlanner`)
+
+The participant's setup (`RoutineSetup`: workout weekdays, run weekdays, two skill names, optional extras with weekdays) is validated and turned into a challenge and its habits:
+
+| Activity | Frequency | Target | Evidence | Skip consequence |
+|---|---|---|---|---|
+| Workout | custom (chosen weekdays, ≥ 1) | 1 session | photo, AI-assessed | 50 push-ups |
+| Run | custom (chosen weekdays, optional) | 1 session | photo | 40 push-ups |
+| Skill 1, Skill 2 | daily | **60 minutes** (sum of sessions) | photo per session (`skill` criteria) | 50 push-ups |
+| Extras | custom (chosen weekdays) | 1 session | photo | 30 push-ups |
+
+The challenge (`templateId: discipline-90`, 90 days) uses fixed, strict rules: `requireAllHabits`, `breakStreak`, skipping allowed with a default of 50 push-ups, and uncertain AI results counted. With only fixed-weekday and daily activities, the feasibility rule never applies, so §6.3 reduces to the product rule: **a day succeeds only if every main activity due that day is finished (or skipped and resolved); otherwise the streak resets to 0.** A skill with 45 of 60 minutes fails the day; 45 + 15 minutes succeeds (`RoutinePlannerTests`).
+
 ---
 
 ## 7. Accountability algorithm
 
 ### 7.1 Skip
 
-1. **Eligibility.** Skipping must be allowed by the rules, the habit must be a session habit, and today's slot must be free (no completion, submission or earlier skip for that day).
+1. **Eligibility.** Skipping must be allowed by the rules. A session habit can be skipped when today's slot is free (no completion, submission or earlier skip). A daily amount habit (a skill's minutes) can be skipped once per day while minutes are still missing; the skip covers exactly the remaining amount (e.g. 40 of 60 minutes after a 20-minute session).
 2. **Consequence.** The habit's own consequence, else the challenge default, else 50 push-ups. It is capped per exercise type (push-ups ≤ 100). Only camera-verifiable exercises are currently offered.
 3. **Confirmation.** The participant sees the exact task and deadline and must tap **Accept**. "Go back" records nothing.
 4. **Recording.** Accepting writes, atomically, an `accountabilityTasks` document (`pending`, deadline = acceptance + 24 h, at most 48 h) and a completion (`accountabilityRequired`, method `accountabilityExercise`) that occupies the day's slot.
@@ -407,8 +430,8 @@ The app shows an *effective* status: an open task whose deadline has passed show
 
 ### 8.1 Experimental condition
 
-- **Design:** between-subjects, with conditions `manual` (self-report, no evidence requested) and `aiAssisted` (evidence-required habits need photos assessed by AI).
-- **Assignment:** `onUserProfileCreated` assigns the condition server-side with **permuted-block randomization** (block size 4, two per condition, shuffled). Group sizes differ by at most 2 at any time, and individual assignments stay unpredictable. The method is recorded in `conditionAssignedBy`.
+- **Current design (`STUDY_DESIGN = "ai-only"`):** every participant is assigned `aiAssisted` by `onUserProfileCreated` (`conditionAssignedBy: fixed-ai-assisted`); every challenge activity requires photo evidence.
+- **Two-arm design (implemented, switchable):** with `STUDY_DESIGN = "permuted-block"`, conditions are `manual` (self-report, no evidence requested) and `aiAssisted`, assigned with **permuted-block randomization** (block size 4, two per condition, shuffled). Group sizes differ by at most 2 at any time, and individual assignments stay unpredictable. The method is recorded in `conditionAssignedBy`.
 - **Immutability:** the condition can't be changed by the participant and is copied onto every completion and daily record.
 
 ### 8.2 Daily records (`dailyRecords/{participantId}_{day}`)
@@ -437,14 +460,36 @@ The `exportResearchCsv` function is available to researchers only.
 
 - **`daily-records.csv`:** one row per participant-day; its columns are identical to the app's `ResearchCSV.dailyHeader`.
 - **`events.csv`:** one row per completion, with participant ID, date, condition, habit ID (a random UUID), habit **category** (never the name), completion status and method, quantity, verification status and confidence, accountability task type, target and status, and the day's outcome.
+- **`usability-sus.csv`:** one row per questionnaire (consenting participants only): participant ID, condition, questionnaire version, submission time, challenge day, answers `q1`–`q10` and `sus_score`, **recomputed on the server** from the answers (the client's score is ignored).
 
 ### 8.4 Researcher dashboard
 
 In-app, for the researcher claim: per-condition participants, successful and missed days, day success rate, commitment adherence, mean current and longest streak, self-reported/verified/rejected/uncertain counts and rates, mean AI confidence, skips, and accountability completion (`ResearchAggregator`, unit-tested).
 
+### 8.5 Usability evaluation (System Usability Scale)
+
+The proposal's usability evaluation uses the **System Usability Scale** (Brooke, 1996), ten statements answered from 1 (strongly disagree) to 5 (strongly agree), worded for "this app". The score is `2.5 × (Σ(odd − 1) + Σ(5 − even))`, from 0 to 100; scores are commonly read against an average of 68 and adjective bands (Bangor et al., 2009). Participants open it from Profile → Study; it is best administered at the end of the study period (the challenge day is stored with each response). Implementation: `SUSQuestionnaire` / `SUSResponse` (Swift) and `susScore` / `usabilityCsv` (TypeScript), checked against the same vectors (`UsabilityTests`, `research.test.ts`).
+
+### 8.6 Performance measurements
+
+For the performance analysis, the app records on the device (`PerformanceLog`, Settings → Performance, CSV export):
+
+| Metric | Measured from … to … |
+|---|---|
+| Evidence upload (ms) | start of the Storage upload → evidence and pending completion written (context: photo size in KB) |
+| AI verification (ms) | callable invoked → result received (includes the model call and the policy; context: provider) |
+| Camera analysis rate (fps) | analysed frames per second over a push-up session |
+| Vision processing (ms per frame) | mean time of the on-device Vision request per frame |
+
+Each metric is summarized with count, mean, median, nearest-rank p95, min and max (`PerformanceSummary`, unit-tested). Suggested protocol: on one device and network, run ≥ 20 evidence submissions and ≥ 5 push-up sessions per counting mode, and report median and p95. The camera is sampled at about 15 fps by design (`PoseCamera.minInterval`), so the analysis rate shows whether Vision keeps up.
+
 ---
 
 ## 9. Experimental comparison: manual vs. AI-assisted
+
+### 9.0 Current design
+
+The study currently runs **AI-assisted only** (§8.1), so the between-group comparison below requires switching back to the two-arm design before data collection. With a single arm, the collected data still supports a descriptive and within-subject analysis: adherence and streaks over the 90 days, verified/rejected/uncertain rates, the effect of rejections or uncertain results on next-day success, skip and accountability-completion rates, and the SUS score (§8.5). The choice between the designs is a methodological decision for the thesis supervisor; the implementation supports both without code changes in the app.
 
 ### 9.1 Research question and hypotheses
 
@@ -489,10 +534,10 @@ The application collects the data to test these hypotheses. It makes no claim th
 
 | Suite | Location | What it covers |
 |---|---|---|
-| Domain unit tests (Swift, Linux + macOS CI) | `Packages/DisciplineCore/Tests` | day keys and time zones; habit periods, targets and weekly/monthly adherence; completion planning and duplicate prevention; accountability planning and lifecycle; AI policy (shared vectors); push-up engines (synthetic poses: valid, partial, bounce, sagging, noise, tracking loss, aspect ratio); face engine; streaks and day resolution; history resolution (shared vectors); challenges; research records, aggregation and CSV; notification planning; progress statistics; demo history |
-| Cloud Functions tests (TypeScript) | `firebase/functions/src/test` | shared AI-policy vectors; verification orchestration (verified, rejected, uncertain, malformed, timeout, provider error, refusal, rate limit, ownership, idempotency, per-photo and per-user caps); prompt construction and injection defence; accountability lifecycle and expiry job; session application; shared history vectors; research records, CSV and assignment |
-| Security rules tests | `firebase/tests` (Firestore + Storage emulators) | 23 tests over every rule in §5.2 |
-| UI tests (XCUITest, simulator) | `DisciplineUITests` | **Flow 1:** register → onboarding → habits → photo evidence → AI result → progress. **Flow 2:** skip → accept push-ups → camera session → task resolved → streak |
+| Domain unit tests (Swift, Linux + macOS CI) | `Packages/DisciplineCore/Tests` | day keys and time zones; habit periods, targets and weekly/monthly adherence; completion planning and duplicate prevention; accountability planning and lifecycle; AI policy (shared vectors); push-up engines (synthetic poses: valid, partial, bounce, sagging, noise, tracking loss, aspect ratio); face engine; streaks and day resolution; history resolution (shared vectors); challenges and the 90-day routine (strict daily rule, minute skips); widget snapshot and midnight rollover; research records, aggregation and CSV; SUS scoring; performance statistics; notification planning; progress statistics; demo history |
+| Cloud Functions tests (TypeScript) | `firebase/functions/src/test` | shared AI-policy vectors; verification orchestration (verified, rejected, uncertain, malformed, timeout, provider error, refusal, rate limit, ownership, idempotency, per-photo and per-user caps); prompt construction and injection defence; accountability lifecycle and expiry job; session application; shared history vectors; research records, CSV, SUS scoring and assignment (both designs) |
+| Security rules tests | `firebase/tests` (Firestore + Storage emulators) | 24 tests over every rule in §5.2 |
+| UI tests (XCUITest, simulator) | `DisciplineUITests` | **Flow 1:** register → onboarding → 90-day setup (Guitar, Spanish) → skill photo evidence → AI result → progress. **Flow 2:** skip a skill → accept push-ups → camera session → task resolved → streak |
 
 **Continuous integration** (`.github/workflows/ci.yml`) runs every suite on every push: core tests on Linux, function and rules tests on Node, the iOS build and UI tests on macOS. Compiler errors and test failures are published as annotations.
 
@@ -512,5 +557,7 @@ The application collects the data to test these hypotheses. It makes no claim th
 5. **Measurement asymmetry between arms** (§9.4).
 6. **Early assignment window.** In the seconds between profile creation and server assignment, the provisional condition applies. Onboarding normally takes longer.
 7. **History window.** The app computes streaks over the last 120 days. Server records persist longer history, and a 75-day challenge fits within the window.
-8. **Notifications** are local. There is no push notification when a verification finishes while the app is closed.
+8. **No paid Apple developer account.** Notifications are local (no push when a verification finishes while the app is closed). HealthKit step tracking and TestFlight distribution were dropped. The widget's App Group is signed for the simulator only, so on a device with free provisioning the widget shows a placeholder.
 9. **Scope.** Push-ups are the only implemented exercise; squats, sit-ups and lunges fit the engine protocol but aren't built. Sign in with Apple wasn't implemented.
+10. **Skill practice is assessed from photos.** A photo shows that practice took place, not how long it lasted; logged minutes are self-reported. Several photos per day (one per session) raise the bar without proving duration.
+11. **Single-arm design.** In the current AI-only design there is no manual comparison group (§9.0); effects can't be attributed to AI verification without one.

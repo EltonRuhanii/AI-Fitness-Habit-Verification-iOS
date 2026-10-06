@@ -39,6 +39,15 @@ Found and fixed during earlier phases (all tested):
 - Evidence photos are readable only by their owner (and the Admin SDK); JPEG only, < 8 MB, write-once.
 - Research records are readable only by researchers (claim) and by the participant they belong to.
 - The AI provider key is stored only in Secret Manager.
+- SUS questionnaire responses are create-only, carry the caller's own participant ID and condition (no account ID), contain ten answers in 1–5, and are readable only by researchers; the export recomputes the score.
+
+## Changes after Phase 12
+
+- **Challenge mode (90 days).** Habits are created only by the setup flow; their commitment fields stay locked by the existing active-challenge rule. No new client write paths.
+- **AI-only design.** The server assigns `aiAssisted` to everyone (`fixed-ai-assisted`); the condition remains immutable for clients.
+- **Usability responses** (`usabilityResponses`): new create-only collection (rule + emulator test); deleted with the account.
+- **Widget.** Reads a local snapshot from the App Group container on the device; nothing leaves the device and it is cleared on sign-out.
+- **Performance log.** Timing values only, stored locally in `UserDefaults`.
 
 ## Residual risks (accepted, documented)
 

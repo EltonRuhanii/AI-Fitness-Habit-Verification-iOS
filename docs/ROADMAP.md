@@ -20,7 +20,7 @@ The project was established from scratch.
 | Exercise verification | Apple Vision `VNDetectHumanBodyPoseRequest`, on device | No video leaves the device. Deterministic, versioned thresholds. |
 | Project file | Xcode 16 synchronized folders | Files added under `Discipline/` are picked up automatically, so no merge conflicts in the project file. |
 | Demo mode | Auto-enabled when `GoogleService-Info.plist` is absent, or with `-demoMode` | The app runs and UI tests run without Firebase. A visible badge prevents confusion with study data. |
-| Experimental condition | Between-subjects, `manual` vs `aiAssisted`, immutable per participant | Stored on the profile and copied onto every completion and daily record. |
+| Experimental condition | Server-assigned and immutable per participant; currently `ai-only` (everyone `aiAssisted`), two-arm permuted-block design switchable on the server | Stored on the profile and copied onto every completion and daily record. |
 
 ## Phases
 
@@ -38,6 +38,8 @@ The project was established from scratch.
 | 10 | Research | ✅ | Server permuted-block condition assignment, shared HistoryResolver (Swift + TS, shared vectors), nightly consent-gated daily records in participant time zone, researcher-claim dashboard (condition comparison), anonymous daily + events CSV export, account-deletion cleanup incl. research records |
 | 11 | Polish | ✅ | Local notifications (planner in core + tests: evening reminder, accountability deadline, streak warning, weekly summary; quiet hours, 3/day cap, per-type toggles, contextual permission), offline banner with pending-change count, evidence offline guard, Settings (notifications, appearance, privacy & AI explanations, delete evidence photos, account), profile statistics |
 | 12 | Testing & docs | ✅ | Security review (6 findings fixed, tested) and SECURITY_REVIEW.md; Progress screen (spec §34) with core calculator; deterministic demo history; XCUITest target with both spec flows in CI; TECHNICAL_DOCUMENTATION.md for the thesis |
+| 13 | Challenge mode | ✅ | App runs only as a 90-day challenge: routine setup (workouts, runs, two daily 60-min skills, extras), strict daily rule, skill skips cover the missing minutes; free habits/editor/custom challenges removed from the UI; everyone AI-assisted (`ai-only` design, switchable); skill evidence criteria (`criteria-v2`) |
+| 14 | Demo, widget, evaluation | ✅ | "Discipline Demo" scheme (auto sign-in, day-46 demo challenge); medium home-screen widget (streak + first three unfinished activities, midnight rollover); SUS usability questionnaire with server-side scoring in the export; on-device performance measurements with CSV export |
 
 ## Verification approach
 
