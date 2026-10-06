@@ -33,6 +33,8 @@ final class SessionStore {
     /// Display name captured at registration. Firebase reports the new user before the
     /// name is committed to the auth profile, so the profile is created from this instead.
     private var pendingDisplayName: String?
+    /// Demo auto sign-in runs once per launch, so signing out still works.
+    private var autoSignInAttempted = false
 
     init(auth: AuthenticationService, users: UserRepository) {
         self.auth = auth
@@ -60,6 +62,7 @@ final class SessionStore {
         profileTask = nil
         guard let user else {
             phase = .signedOut
+            await autoSignInIfNeeded()
             return
         }
         do {
@@ -67,6 +70,9 @@ final class SessionStore {
             // Ignore stale results if the user signed out or switched accounts meanwhile.
             guard lastUser?.uid == user.uid else { return }
             apply(profile)
+            if AppConfiguration.current.demoAutoSignIn && !profile.onboardingCompleted {
+                try await completeOnboarding(researchConsent: true)
+            }
             observeProfile(uid: user.uid)
             await syncTimeZone(profile)
         } catch {
@@ -90,6 +96,23 @@ final class SessionStore {
             } catch {
                 Log.data.error("Profile updates stopped: \(error.localizedDescription, privacy: .public)")
             }
+        }
+    }
+
+    /// The Demo scheme's local account (demo backend only, never a real credential).
+    private enum DemoAccount {
+        static let email = "demo@discipline.local"
+        static let password = "Discipline2026"
+        static let name = "Demo"
+    }
+
+    private func autoSignInIfNeeded() async {
+        guard AppConfiguration.current.demoAutoSignIn, !autoSignInAttempted else { return }
+        autoSignInAttempted = true
+        do {
+            _ = try await auth.signIn(email: DemoAccount.email, password: DemoAccount.password)
+        } catch {
+            try? await register(email: DemoAccount.email, password: DemoAccount.password, displayName: DemoAccount.name)
         }
     }
 

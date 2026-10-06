@@ -21,14 +21,18 @@ struct AppConfiguration {
     let isUITesting: Bool
     /// Demo only: fixes the experimental condition (UI tests need a known condition).
     let forcedCondition: TrackingCondition?
+    /// Demo only (the "Discipline Demo" scheme): signs in to a local demo account and skips
+    /// onboarding, so the app opens straight on the dashboard.
+    let demoAutoSignIn: Bool
 
     init(backend: BackendMode, seedDemoData: Bool, resetLocalState: Bool,
-         isUITesting: Bool = false, forcedCondition: TrackingCondition? = nil) {
+         isUITesting: Bool = false, forcedCondition: TrackingCondition? = nil, demoAutoSignIn: Bool = false) {
         self.backend = backend
         self.seedDemoData = seedDemoData
         self.resetLocalState = resetLocalState
         self.isUITesting = isUITesting && backend == .demo
         self.forcedCondition = backend == .demo ? forcedCondition : nil
+        self.demoAutoSignIn = demoAutoSignIn && backend == .demo
     }
 
     static let current = AppConfiguration.detect()
@@ -47,7 +51,8 @@ struct AppConfiguration {
             seedDemoData: arguments.contains("-seedDemoData"),
             resetLocalState: arguments.contains("-resetLocalState"),
             isUITesting: arguments.contains("-uiTesting"),
-            forcedCondition: forced
+            forcedCondition: forced,
+            demoAutoSignIn: arguments.contains("-demoAutoSignIn")
         )
     }
 }
