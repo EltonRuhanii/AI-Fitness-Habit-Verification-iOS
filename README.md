@@ -10,7 +10,10 @@ Participants commit to habits (e.g. gym 4×/week, reading 100 pages/week). Each 
 
 > ⚠️ Automated verification is an *assessment against defined criteria*, not proof. The app never claims otherwise.
 
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) for implementation status and architecture decisions.
+Documentation:
+- [`docs/TECHNICAL_DOCUMENTATION.md`](docs/TECHNICAL_DOCUMENTATION.md): the thesis technical documentation. Covers architecture, the AI and computer-vision pipelines, database design, security, the streak and accountability algorithms, the research data model and the experimental comparison.
+- [`docs/SECURITY_REVIEW.md`](docs/SECURITY_REVIEW.md): threat model, findings and residual risks.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md): implementation status and architecture decisions.
 
 ---
 
@@ -48,7 +51,9 @@ Launch arguments (Scheme → Run → Arguments):
 |---|---|
 | `-demoMode` | Force demo mode even when Firebase is configured |
 | `-resetLocalState` | Wipe demo data and preferences on launch (used by UI tests) |
-| `-seedDemoData` | Populate demo history (Phase 12) |
+| `-seedDemoData` | Load five weeks of generated demo history on a fresh demo account (also available in Settings → Demo tools) |
+| `-uiTesting` | UI-test mode (implies demo): sample photo, stub verifier, scripted push-up session |
+| `-forceCondition manual\|aiAssisted` | Demo only: fix the experimental condition |
 
 ## Firebase setup
 
@@ -241,6 +246,14 @@ Security rules (starts the Firebase emulators; requires Java):
 ```bash
 cd firebase/tests && npm ci && npm test
 ```
+
+UI tests (Xcode, simulator): run the **Discipline** scheme's tests (⌘U), or:
+
+```bash
+xcodebuild test -project Discipline.xcodeproj -scheme Discipline -destination 'platform=iOS Simulator,name=iPhone 16'
+```
+
+They cover the two end-to-end flows (evidence → AI result → progress, and skip → push-ups → resolved → streak) using deterministic stand-ins for the camera and AI. See §10 of the technical documentation.
 
 On Windows, without Xcode:
 

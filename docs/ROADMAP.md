@@ -37,7 +37,7 @@ The project was established from scratch.
 | 9 | Challenges | ✅ | 75 Day Discipline template + custom challenges (adopt existing habits), participant rules (streak, require-all, skipping + consequence, missed-day, uncertain policy), locked study parameters, explicit acceptance, rule lock, challenge-scoped streak/rules, day X of Y + adherence, auto-complete, abandon |
 | 10 | Research | ✅ | Server permuted-block condition assignment, shared HistoryResolver (Swift + TS, shared vectors), nightly consent-gated daily records in participant time zone, researcher-claim dashboard (condition comparison), anonymous daily + events CSV export, account-deletion cleanup incl. research records |
 | 11 | Polish | ✅ | Local notifications (planner in core + tests: evening reminder, accountability deadline, streak warning, weekly summary; quiet hours, 3/day cap, per-type toggles, contextual permission), offline banner with pending-change count, evidence offline guard, Settings (notifications, appearance, privacy & AI explanations, delete evidence photos, account), profile statistics |
-| 12 | Testing & docs | ⏳ | UI tests (demo mode), rules unit tests (emulator), AI failure tests, thesis technical documentation |
+| 12 | Testing & docs | ✅ | Security review (6 findings fixed, tested) and SECURITY_REVIEW.md; Progress screen (spec §34) with core calculator; deterministic demo history; XCUITest target with both spec flows in CI; TECHNICAL_DOCUMENTATION.md for the thesis |
 
 ## Verification approach
 

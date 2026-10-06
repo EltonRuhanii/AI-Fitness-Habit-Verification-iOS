@@ -111,6 +111,11 @@ jobs:
             -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO | tee test.log | grep -E "Test Case|error:|TEST (SUCCEEDED|FAILED)" || true
           grep -q "TEST SUCCEEDED" test.log
+          # Guard against a vacuous pass: the end-to-end flows must actually have run and passed.
+          PASSED=$(grep -cE "Test [Cc]ase .*DisciplineUITests.* passed" test.log || true)
+          echo "UI tests passed: $PASSED"
+          echo "::notice title=UI tests::$PASSED UI test(s) passed"
+          test "$PASSED" -ge 2
       - name: Report failures as annotations
         if: failure()
         run: |
