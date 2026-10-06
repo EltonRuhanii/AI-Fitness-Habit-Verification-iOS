@@ -126,4 +126,31 @@ final class RoutinePlannerTests: XCTestCase {
         XCTAssertTrue(allDone.items.isEmpty)
         XCTAssertFalse(allDone.isCurrent(today: monday.adding(days: 1, calendar: calendar)))
     }
+
+    func testWidgetDisplayRollsOverAtMidnight() throws {
+        let plan = try RoutinePlanner.plan(setup: setup, ownerId: "u", startDate: monday, existingChallenges: [],
+                                           rulesAccepted: true, today: monday, calendar: calendar)
+        let tuesday = monday.adding(days: 1, calendar: calendar)
+        let todays = TodayCommitments.build(habits: plan.habits, completions: [], today: monday, condition: .aiAssisted, calendar: calendar)
+        let tomorrows = TodayCommitments.build(habits: plan.habits, completions: [], today: tuesday, condition: .aiAssisted, calendar: calendar)
+        let progress = ChallengeProgress(dayNumber: 10, durationDays: 90, successfulDays: 9, failedDays: 0, pendingDays: 1)
+        let unfinished = WidgetSnapshot.make(today: monday, commitments: todays, streak: 9, progress: progress,
+                                             nextDayCommitments: tomorrows)
+        XCTAssertEqual(unfinished.display(on: monday, calendar: calendar).streak, 9)
+        XCTAssertEqual(unfinished.display(on: monday, calendar: calendar).remaining, 3)
+
+        let rolled = unfinished.display(on: tuesday, calendar: calendar)
+        XCTAssertEqual(rolled.streak, 0, "an unfinished day resets the streak at midnight")
+        XCTAssertEqual(rolled.remaining, 4, "Tuesday: workout, cold plunge and both skills")
+        XCTAssertEqual(rolled.items.count, 3)
+        XCTAssertEqual(rolled.challengeDay, 11)
+
+        let finished = WidgetSnapshot.make(today: monday, commitments: [], streak: 10, progress: progress,
+                                           nextDayCommitments: tomorrows)
+        XCTAssertEqual(finished.display(on: tuesday, calendar: calendar).streak, 10, "a finished day keeps the streak")
+
+        let stale = finished.display(on: tuesday.adding(days: 1, calendar: calendar), calendar: calendar)
+        XCTAssertNil(stale.remaining)
+        XCTAssertTrue(stale.items.isEmpty)
+    }
 }

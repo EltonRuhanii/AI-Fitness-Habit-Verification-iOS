@@ -62,6 +62,7 @@ final class SessionStore {
         profileTask = nil
         guard let user else {
             phase = .signedOut
+            WidgetBridge.clear()
             await autoSignInIfNeeded()
             return
         }

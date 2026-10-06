@@ -242,7 +242,22 @@ final class HabitsStore {
                 streakEnabled: self.rules.streakEnabled
             )
             await self.notifications.reschedule(planned)
+            self.publishWidget()
         }
+    }
+
+    /// Today's first unfinished main activities and the streak, for the home-screen widget.
+    private func publishWidget() {
+        let tomorrow = today.adding(days: 1, calendar: calendar)
+        let nextDay = TodayCommitments.build(habits: activeHabits, completions: completions, today: tomorrow,
+                                             condition: condition, policy: countingPolicy, calendar: calendar)
+        WidgetBridge.publish(WidgetSnapshot.make(
+            today: today,
+            commitments: todayCommitments,
+            streak: rules.streakEnabled ? streak.current : 0,
+            progress: challengeProgress,
+            nextDayCommitments: nextDay
+        ))
     }
 
     /// Notification permission is requested in context: when the challenge is started.
