@@ -1,17 +1,15 @@
 import SwiftUI
 import DisciplineCore
 
-/// The most important screen: what's due today, how the week is going, and one tap to act.
+/// The most important screen: today's main activities in the 90-day challenge, one tap to act.
 struct DashboardView: View {
     @Environment(SessionStore.self) private var session
     @Environment(HabitsStore.self) private var store
     @Environment(AppContainer.self) private var container
 
-    @State private var creatingHabit = false
     @State private var actionTarget: Habit?
     @State private var skipTarget: Habit?
     @State private var startingTask: AccountabilityTask?
-    @State private var errorMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -34,20 +32,12 @@ struct DashboardView: View {
                 case .challenge: ChallengeHubView()
                 }
             }
-            .sheet(isPresented: $creatingHabit) {
-                HabitEditorView(habit: nil, userId: store.userId, today: store.today, calendar: store.calendar)
-            }
             .habitCompletionFlow(target: $actionTarget)
             .sheet(item: $skipTarget) { habit in
                 SkipConfirmationSheet(habit: habit)
             }
             .fullScreenCover(item: $startingTask) { task in
                 ExerciseCameraView(task: task, store: store, container: container)
-            }
-            .alert("Couldn't add habits", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(errorMessage ?? "")
             }
         }
     }
@@ -59,13 +49,18 @@ struct DashboardView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, minHeight: 200)
         case .failed(let error) where store.habits.isEmpty:
-            EmptyStateView(systemImage: "wifi.exclamationmark", title: "Couldn't load your habits",
+            EmptyStateView(systemImage: "wifi.exclamationmark", title: "Couldn't load your challenge",
                            message: error.localizedDescription, actionTitle: "Try again") { store.restart() }
                 .card()
         default:
-            if store.activeHabits.isEmpty {
-                emptyState
-            } else {
+            if let upcoming = store.upcomingChallenge, store.activeChallenge == nil {
+                EmptyStateView(
+                    systemImage: "calendar.badge.clock",
+                    title: "Your challenge starts \(upcoming.startDate == store.today.adding(days: 1, calendar: store.calendar) ? "tomorrow" : "soon")",
+                    message: "Rest up. From day 1, every main activity has to be done each day to keep your streak."
+                )
+                .card()
+            } else if store.activeChallenge != nil {
                 accountabilitySection
                 todaySection
                 weeklySection
@@ -84,27 +79,6 @@ struct DashboardView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("dashboard.challenge")
-        } else if !store.activeHabits.isEmpty {
-            NavigationLink(value: DashboardRoute.challenge) {
-                HStack(spacing: Theme.Spacing.sm) {
-                    Image(systemName: "flag.checkered")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(Theme.Palette.accent)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Start a challenge")
-                            .font(Theme.Typography.headline)
-                            .foregroundStyle(Theme.Palette.textPrimary)
-                        Text("Commit for a set number of days with rules you choose.")
-                            .font(Theme.Typography.caption)
-                            .foregroundStyle(Theme.Palette.textSecondary)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right").foregroundStyle(Theme.Palette.textTertiary)
-                }
-                .card()
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("dashboard.startChallenge")
         }
     }
 
@@ -122,26 +96,14 @@ struct DashboardView: View {
                     .foregroundStyle(Theme.Palette.textPrimary)
             }
             Spacer()
-            if store.streak.current > 0 {
-                Label("\(store.streak.current)", systemImage: "flame.fill")
-                    .font(Theme.Typography.headline.monospacedDigit())
-                    .foregroundStyle(Theme.Palette.accent)
-                    .padding(.horizontal, 12)
-                    .frame(height: 44)
-                    .background(Capsule().fill(Theme.Palette.accent.opacity(0.14)))
-                    .accessibilityLabel("\(store.streak.current) day streak")
-            }
-            Button {
-                creatingHabit = true
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(Theme.Palette.emberGradient))
-            }
-            .accessibilityLabel("New habit")
-            .accessibilityIdentifier("dashboard.addHabit")
+            Label("\(store.streak.current)", systemImage: "flame.fill")
+                .font(Theme.Typography.headline.monospacedDigit())
+                .foregroundStyle(store.streak.current > 0 ? Theme.Palette.accent : Theme.Palette.textTertiary)
+                .padding(.horizontal, 12)
+                .frame(height: 44)
+                .background(Capsule().fill(Theme.Palette.accent.opacity(0.14)))
+                .accessibilityLabel("\(store.streak.current) day streak")
+                .accessibilityIdentifier("dashboard.streak")
         }
         .padding(.top, Theme.Spacing.md)
     }
@@ -165,11 +127,11 @@ struct DashboardView: View {
 
     private var todaySection: some View {
         let commitments = store.todayCommitments
-        let outstanding = commitments.filter(\.isOutstanding).count
+        let outstanding = commitments.filter { $0.state != .done }.count
         return VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             SectionEyebrow(title: "Today", trailing: outstanding == 0 ? "All done" : "\(outstanding) remaining")
             if commitments.isEmpty {
-                Text("Nothing scheduled today. Enjoy the rest day.")
+                Text("Nothing scheduled today.")
                     .font(Theme.Typography.callout)
                     .foregroundStyle(Theme.Palette.textSecondary)
                     .card()
@@ -192,60 +154,24 @@ struct DashboardView: View {
                     }
                 }
                 .card(padding: 0)
+                Text("Every main activity must be done today, or skipped with push-ups, to keep your streak.")
+                    .font(Theme.Typography.caption)
+                    .foregroundStyle(Theme.Palette.textTertiary)
             }
         }
     }
 
-    // MARK: Weekly goals
+    // MARK: This week
 
     private var weeklySection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            SectionEyebrow(title: "Weekly goals")
+            SectionEyebrow(title: "This week")
             VStack(spacing: Theme.Spacing.md) {
                 ForEach(store.activeHabits) { habit in
                     if let summary = store.weekSummary(for: habit) {
                         WeeklyGoalRow(habit: habit, achieved: summary.achieved, target: summary.target)
                     }
                 }
-            }
-            .card()
-        }
-    }
-
-    // MARK: Empty
-
-    private var emptyState: some View {
-        VStack(spacing: Theme.Spacing.md) {
-            EmptyStateView(
-                systemImage: "checklist",
-                title: "Set your first commitment",
-                message: "Habits are the commitments you'll hold yourself to, like gym 4× a week or 100 pages of reading.",
-                actionTitle: "Create a habit"
-            ) { creatingHabit = true }
-            .card()
-
-            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                Label("Quick start", systemImage: "bolt.fill")
-                    .font(Theme.Typography.headline)
-                    .foregroundStyle(Theme.Palette.textPrimary)
-                Text("Gym 4×/week · Running 2×/week · Reading 100 pages/week · Cold plunge 3×/week")
-                    .font(Theme.Typography.callout)
-                    .foregroundStyle(Theme.Palette.textSecondary)
-                NavigationLink(value: DashboardRoute.challenge) {
-                Label("Or start the 75 Day Discipline challenge", systemImage: "flame.fill")
-                    .font(Theme.Typography.callout.weight(.semibold))
-            }
-            .accessibilityIdentifier("dashboard.emptyChallenge")
-
-            Button("Add these habits") {
-                    do {
-                        try store.addStarterHabits()
-                    } catch {
-                        errorMessage = AppError.from(error).localizedDescription
-                    }
-                }
-                .buttonStyle(.secondary(tint: Theme.Palette.accent))
-                .accessibilityIdentifier("dashboard.addStarter")
             }
             .card()
         }

@@ -8,9 +8,11 @@ struct MainTabView: View {
     @Environment(AppContainer.self) private var container
     @State private var selection: Tab = .today
     @State private var habits: HabitsStore
+    @State private var isSeedingDemo: Bool
 
     init(profile: UserProfile, container: AppContainer) {
         _habits = State(initialValue: HabitsStore(profile: profile, container: container))
+        _isSeedingDemo = State(initialValue: container.configuration.seedDemoData)
     }
 
     var body: some View {
@@ -32,15 +34,26 @@ struct MainTabView: View {
                 .tag(Tab.profile)
         }
         .environment(habits)
+        .fullScreenCover(isPresented: needsSetup) {
+            RoutineSetupView()
+                .environment(habits)
+        }
         .onAppear { habits.start() }
         .task {
-            // `-seedDemoData`: fill a fresh demo account once its (empty) data has loaded.
-            guard container.configuration.seedDemoData else { return }
+            // `-seedDemoData`: fill a fresh demo account (no challenge yet) once its data has loaded.
+            guard isSeedingDemo else { return }
             try? await Task.sleep(for: .seconds(1))
-            if habits.habits.isEmpty { _ = try? DemoSeeder.seed(container: container, store: habits) }
+            if habits.needsChallengeSetup { _ = try? DemoSeeder.seed(container: container, store: habits) }
+            try? await Task.sleep(for: .milliseconds(500))
+            isSeedingDemo = false
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { habits.refreshToday() }
         }
+    }
+
+    /// The app only runs in challenge mode: without a challenge, setup covers everything.
+    private var needsSetup: Binding<Bool> {
+        Binding(get: { !isSeedingDemo && habits.needsChallengeSetup }, set: { _ in })
     }
 }

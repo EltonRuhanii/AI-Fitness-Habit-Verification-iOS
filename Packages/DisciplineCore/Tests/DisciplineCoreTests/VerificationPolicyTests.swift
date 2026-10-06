@@ -65,11 +65,12 @@ final class VerificationPolicyTests: XCTestCase {
 
     func testBundledCatalogCoversEveryCategory() {
         let catalog = VerificationCriteriaCatalog.bundled
-        XCTAssertEqual(catalog.version, "criteria-v1")
+        XCTAssertEqual(catalog.version, "criteria-v2")
         XCTAssertEqual(catalog.defaultConfidenceThreshold, 0.7)
         for category in HabitCategory.allCases {
             let criteria = catalog.criteria(for: category)
-            XCTAssertEqual(criteria.first?.id, "authentic_photo", "\(category) starts with the shared authenticity check")
+            let authenticity = category == .skill ? "genuine_practice_photo" : "authentic_photo"
+            XCTAssertEqual(criteria.first?.id, authenticity, "\(category) starts with an authenticity check")
             XCTAssertGreaterThanOrEqual(criteria.count, 2, "\(category)")
             XCTAssertEqual(Set(criteria.map(\.id)).count, criteria.count, "\(category) has duplicate criterion ids")
         }

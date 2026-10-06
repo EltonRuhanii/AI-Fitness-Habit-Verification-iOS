@@ -1,7 +1,7 @@
 import Foundation
 
 public enum HabitCategory: String, Codable, CaseIterable, Sendable {
-    case fitness, gym, running, nutrition, reading, recovery, discipline, custom
+    case fitness, gym, running, nutrition, reading, recovery, discipline, skill, custom
 
     public var displayName: String {
         switch self {
@@ -12,6 +12,7 @@ public enum HabitCategory: String, Codable, CaseIterable, Sendable {
         case .reading: return "Reading"
         case .recovery: return "Recovery"
         case .discipline: return "Discipline"
+        case .skill: return "New skill"
         case .custom: return "Custom"
         }
     }
@@ -26,6 +27,7 @@ public enum HabitCategory: String, Codable, CaseIterable, Sendable {
         case .reading: return "book.fill"
         case .recovery: return "snowflake"
         case .discipline: return "flame.fill"
+        case .skill: return "graduationcap.fill"
         case .custom: return "star.fill"
         }
     }

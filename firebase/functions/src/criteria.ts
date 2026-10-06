@@ -13,6 +13,8 @@ export interface CriteriaCatalog {
   defaultConfidenceThreshold: number;
   flags: string[];
   sharedCriteria: Criterion[];
+  /** Shared criteria a category replaces with its own (mirrors the Swift catalog). */
+  sharedCriteriaExemptions?: Record<string, string[]>;
   categories: Record<string, Criterion[]>;
 }
 
@@ -23,5 +25,9 @@ export function loadCatalog(file = path.join(__dirname, "generated/verification-
 
 /** Shared criteria first, then the category's own; unknown categories fall back to `custom`. */
 export function criteriaFor(catalog: CriteriaCatalog, category: string): Criterion[] {
-  return [...catalog.sharedCriteria, ...(catalog.categories[category] ?? catalog.categories.custom ?? [])];
+  const exempt = new Set(catalog.sharedCriteriaExemptions?.[category] ?? []);
+  return [
+    ...catalog.sharedCriteria.filter((c) => !exempt.has(c.id)),
+    ...(catalog.categories[category] ?? catalog.categories.custom ?? []),
+  ];
 }

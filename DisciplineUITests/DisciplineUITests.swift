@@ -13,13 +13,13 @@ final class DisciplineUITests: XCTestCase {
         app.launch()
     }
 
-    // MARK: Flow 1: Login → Dashboard → Create habit → Complete habit → Submit evidence → AI result → Progress
+    // MARK: Flow 1: Login → 90-day setup → Complete skill → Submit evidence → AI result → Progress
 
     func testEvidenceVerificationFlow() {
         registerAndOnboard()
-        addStarterHabits()
+        setUpChallenge()
 
-        tap(app.buttons["commitment.action.Gym"])
+        tap(app.buttons["commitment.action.Guitar"])
         tap(app.buttons["evidence.sample"])
         tap(app.buttons["evidence.submit"])
         XCTAssertTrue(element(labelContaining: "Evidence verified").waitForExistence(timeout: 15), "AI result shown")
@@ -32,13 +32,13 @@ final class DisciplineUITests: XCTestCase {
                       "progress counts the verified completion")
     }
 
-    // MARK: Flow 2: Dashboard → Skip gym → Accept 50 push-ups → Camera → Complete exercise → Resolved → Streak
+    // MARK: Flow 2: Dashboard → Skip a skill → Accept 50 push-ups → Camera → Complete exercise → Resolved → Streak
 
     func testSkipAccountabilityFlow() {
         registerAndOnboard()
-        addStarterHabits()
+        setUpChallenge()
 
-        tap(app.buttons["commitment.row.Gym"])
+        tap(app.buttons["commitment.row.Spanish"])
         tap(app.buttons["habit.skip"])
         XCTAssertTrue(element(labelContaining: "PUSH-UPS").waitForExistence(timeout: 5), "consequence shown before accepting")
         tap(app.buttons["skip.accept"])
@@ -72,9 +72,18 @@ final class DisciplineUITests: XCTestCase {
         tap(app.buttons["rules.accept"])
     }
 
-    private func addStarterHabits() {
-        tap(app.buttons["dashboard.addStarter"])
-        XCTAssertTrue(app.buttons["commitment.row.Gym"].waitForExistence(timeout: 5))
+    /// Default routine (4 workouts, 2 runs) plus two daily skills, starting today.
+    private func setUpChallenge() {
+        tap(app.buttons["setup.next"])   // intro
+        tap(app.buttons["setup.next"])   // weekly routine (defaults)
+        type("Guitar", into: app.textFields["setup.skill1"])
+        type("Spanish", into: app.textFields["setup.skill2"])
+        tap(app.buttons["setup.next"])   // skills
+        tap(app.buttons["setup.next"])   // extras (none)
+        tap(app.buttons["setup.accept"])
+        tap(app.buttons["setup.start"])
+        XCTAssertTrue(app.buttons["commitment.row.Guitar"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["commitment.row.Spanish"].exists)
     }
 
     private func tap(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {

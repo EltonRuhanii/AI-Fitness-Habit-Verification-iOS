@@ -32,18 +32,6 @@ struct SettingsView: View {
                 NavigationLink("About AI verification") { AIVerificationInfoView() }
             }
 
-            if container.configuration.backend == .demo {
-                Section {
-                    Button("Load 5 weeks of demo history") { seedDemoHistory() }
-                        .disabled(!store.activeHabits.isEmpty || isWorking)
-                        .accessibilityIdentifier("settings.seedDemo")
-                } header: {
-                    Text("Demo tools")
-                } footer: {
-                    Text("Demo mode only, on an account without habits: adds the starter habits with five weeks of realistic history (a broken streak, verified, rejected and uncertain evidence, and a resolved skip) for demonstrations.")
-                }
-            }
-
             Section {
                 Button("Delete my evidence photos", role: .destructive) { confirmsEvidenceDeletion = true }
                     .disabled(isWorking)
@@ -144,15 +132,6 @@ struct SettingsView: View {
         do {
             let count = try await container.evidence.deleteAllEvidence(userId: store.userId)
             message = ("Deleted \(count) evidence photo\(count == 1 ? "" : "s").", false)
-        } catch {
-            message = (AppError.from(error).localizedDescription, true)
-        }
-    }
-
-    private func seedDemoHistory() {
-        do {
-            let count = try DemoSeeder.seed(container: container, store: store)
-            message = ("Added demo history (\(count) completions).", false)
         } catch {
             message = (AppError.from(error).localizedDescription, true)
         }

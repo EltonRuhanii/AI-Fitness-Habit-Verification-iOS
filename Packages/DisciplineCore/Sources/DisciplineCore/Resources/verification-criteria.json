@@ -1,5 +1,5 @@
 {
-  "version": "criteria-v1",
+  "version": "criteria-v2",
   "defaultConfidenceThreshold": 0.7,
   "flags": [
     "screenshot_or_screen_photo",
@@ -8,6 +8,9 @@
     "image_unclear",
     "possible_reuse"
   ],
+  "sharedCriteriaExemptions": {
+    "skill": ["authentic_photo"]
+  },
   "sharedCriteria": [
     {
       "id": "authentic_photo",
@@ -41,6 +44,11 @@
     "nutrition": [
       { "id": "food_visible", "name": "Food or meal visible", "question": "Is food, a meal, or meal preparation clearly visible?", "isRequired": true },
       { "id": "relevant_to_activity", "name": "Relevant to the declared nutrition goal", "question": "Is the image relevant to the declared nutrition activity described below?", "isRequired": true }
+    ],
+    "skill": [
+      { "id": "genuine_practice_photo", "name": "Genuine photo of a practice session", "question": "Is this a genuine camera photograph of a real practice setting (not a screenshot or an obvious stock/downloaded image)? A photo of a screen is acceptable when the screen shows the learning activity in use.", "isRequired": true },
+      { "id": "practice_visible", "name": "Practice of the declared skill visible", "question": "Does the image show practice of the declared skill, such as an instrument being played or set up for playing, study materials, exercises, or a learning app or course in use?", "isRequired": true },
+      { "id": "relevant_to_activity", "name": "Relevant to the declared skill", "question": "Is the image relevant to the declared skill described below?", "isRequired": true }
     ],
     "discipline": [
       { "id": "relevant_to_activity", "name": "Relevant to the declared activity", "question": "Does the image plausibly show the setting, object, or result of the declared activity described below?", "isRequired": true }

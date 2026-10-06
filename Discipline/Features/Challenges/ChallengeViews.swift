@@ -1,84 +1,18 @@
 import SwiftUI
 import DisciplineCore
 
-/// Entry point: shows the active challenge, or lets the participant start one.
+/// Shows the challenge in progress (or about to start). Without one, the root shows setup.
 struct ChallengeHubView: View {
     @Environment(HabitsStore.self) private var store
 
     var body: some View {
-        Group {
-            if let challenge = store.activeChallenge ?? store.upcomingChallenge {
-                ChallengeDetailView(challenge: challenge)
-            } else {
-                ChallengeGalleryView()
-            }
+        if let challenge = store.activeChallenge ?? store.upcomingChallenge {
+            ChallengeDetailView(challenge: challenge)
+        } else {
+            EmptyStateView(systemImage: "flag.checkered", title: "No challenge in progress",
+                           message: "Set up your next 90 days to continue.")
+                .screenBackground()
         }
-    }
-}
-
-struct ChallengeGalleryView: View {
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-                Text("Choose a challenge")
-                    .font(Theme.Typography.title)
-                    .foregroundStyle(Theme.Palette.textPrimary)
-                Text("A challenge sets how long you commit and the rules you'll hold yourself to. You review and accept the rules before it starts.")
-                    .font(Theme.Typography.callout)
-                    .foregroundStyle(Theme.Palette.textSecondary)
-
-                NavigationLink(value: ChallengeSetupView.Kind.discipline75) {
-                    card(icon: "flame.fill", title: "75 Day Discipline",
-                         text: ChallengeTemplates.discipline75Description, badge: "Template")
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("challenge.template75")
-
-                NavigationLink(value: ChallengeSetupView.Kind.custom) {
-                    card(icon: "slider.horizontal.3", title: "Custom challenge",
-                         text: "Pick your own duration, choose which of your habits count, and set the rules.", badge: nil)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("challenge.custom")
-            }
-            .padding(Theme.Spacing.md)
-        }
-        .screenBackground()
-        .navigationTitle("Challenge")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(for: ChallengeSetupView.Kind.self) { kind in
-            ChallengeSetupView(kind: kind)
-        }
-    }
-
-    private func card(icon: String, title: String, text: String, badge: String?) -> some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.md) {
-            Image(systemName: icon)
-                .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 48, height: 48)
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.Palette.emberGradient))
-            VStack(alignment: .leading, spacing: Theme.Spacing.xxs) {
-                HStack {
-                    Text(title).font(Theme.Typography.headline).foregroundStyle(Theme.Palette.textPrimary)
-                    if let badge {
-                        Text(badge.uppercased())
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .foregroundStyle(Theme.Palette.accent)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(Capsule().fill(Theme.Palette.accent.opacity(0.15)))
-                    }
-                }
-                Text(text)
-                    .font(Theme.Typography.callout)
-                    .foregroundStyle(Theme.Palette.textSecondary)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-            Image(systemName: "chevron.right").foregroundStyle(Theme.Palette.textTertiary)
-        }
-        .card()
     }
 }
 
@@ -113,7 +47,7 @@ struct ChallengeDetailView: View {
         .confirmationDialog("Abandon \(challenge.name)?", isPresented: $confirmsAbandon, titleVisibility: .visible) {
             Button("Abandon challenge", role: .destructive) { abandon() }
         } message: {
-            Text("Its habits stop from today. Your history is kept and still counts as research data.")
+            Text("Its activities stop from today and you'll set up a new 90-day challenge. Your history is kept and still counts as research data.")
         }
     }
 

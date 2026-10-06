@@ -1,6 +1,6 @@
 import { getFirestore, Timestamp, type DocumentData, type Firestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
-import { ASSIGNMENT_METHOD, initialAssignmentState, nextAssignment, type AssignmentState } from "./assignment";
+import { assignForDesign, initialAssignmentState, STUDY_DESIGN, type AssignmentState } from "./assignment";
 import type { Participant, ParticipantData, ResearchStore } from "./jobs";
 import type { Condition, DailyRecord } from "./records";
 import { DEFAULT_RULES, type ChallengeInput, type Rules } from "./resolver";
@@ -89,11 +89,11 @@ export async function assignCondition(db: Firestore, uid: string, random: () => 
     const [user, stateSnap] = await Promise.all([tx.get(userRef), tx.get(stateRef)]);
     if (!user.exists || user.get("conditionAssignedBy")) return null;
     const state = (stateSnap.exists ? stateSnap.data() : initialAssignmentState()) as AssignmentState;
-    const next = nextAssignment(state, random);
+    const next = assignForDesign(STUDY_DESIGN, state, random);
     tx.set(stateRef, next.state);
     tx.update(userRef, {
       trackingCondition: next.condition,
-      conditionAssignedBy: ASSIGNMENT_METHOD,
+      conditionAssignedBy: next.method,
       conditionAssignedAt: Timestamp.now(),
     });
     return next.condition;

@@ -9,27 +9,31 @@ final class ProgressCalculatorTests: XCTestCase {
         let history = DemoHistoryGenerator.generate(userId: "u", condition: .aiAssisted, today: today, calendar: calendar)
         let now = today.startDate(calendar: calendar).addingTimeInterval(12 * 3600)
         let streak = StreakCalculator.summarizeHistory(habits: history.habits, completions: history.completions, tasks: history.tasks,
-                                                       challenges: [], from: today.adding(days: -120, calendar: calendar),
+                                                       challenges: [history.challenge], from: today.adding(days: -120, calendar: calendar),
                                                        today: today, now: now, calendar: calendar)
         let from = today.adding(days: -60, calendar: calendar)
         let summary = ProgressCalculator.summary(days: streak.days, habits: history.habits, completions: history.completions,
                                                  tasks: history.tasks, from: from, through: today, today: today, now: now,
                                                  calendar: calendar)
         XCTAssertEqual(summary.failedDays, 2)
-        XCTAssertGreaterThan(summary.successfulDays, 30)
+        XCTAssertEqual(summary.successfulDays, 43)
         XCTAssertEqual(summary.rejected, 1)
         XCTAssertEqual(summary.uncertain, 1)
-        XCTAssertEqual(summary.skipped, 1)
-        XCTAssertEqual(summary.accountabilityCompleted, 1)
+        XCTAssertEqual(summary.skipped, 2)
+        XCTAssertEqual(summary.accountabilityCompleted, 2)
         XCTAssertEqual(summary.accountabilityOpen, 0)
         XCTAssertEqual(summary.verificationRate ?? 0, Double(summary.verified) / Double(summary.verified + 2), accuracy: 1e-9)
         XCTAssertEqual(summary.weeks.count, 8)
         XCTAssertEqual(summary.weeks.last?.weekStart, today.startOfWeek(calendar: calendar))
         XCTAssertEqual(summary.weeks.map(\.failed).reduce(0, +), 2)
 
-        let gym = summary.habits.first { $0.habitId == history.habits[0].id }
-        XCTAssertNotNil(gym)
-        XCTAssertEqual(gym.map { $0.total - $0.met }, 1, "one missed gym week (the broken week)")
+        func missed(_ name: String) -> Int? {
+            let id = history.habits.first { $0.name == name }?.id
+            return summary.habits.first { $0.habitId == id }.map { $0.total - $0.met }
+        }
+        XCTAssertEqual(missed("Workout"), 0, "every workout done (one via a resolved skip)")
+        XCTAssertEqual(missed("Spanish"), 1)
+        XCTAssertEqual(missed("Guitar"), 1)
     }
 
     func testPeriodFiltering() {

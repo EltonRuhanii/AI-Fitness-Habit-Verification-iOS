@@ -4,7 +4,7 @@ public enum SkipPlanError: Error, Equatable, Sendable {
     case notScheduled
     /// Skipping is disabled by the challenge rules.
     case skippingNotAllowed
-    /// Only session habits (gym, runs…) can be skipped; skipping "pages" has no clear meaning.
+    /// Weekly amount targets (e.g. 100 pages a week) can't be skipped: they can be caught up any day.
     case notSkippable
     /// Today's slot is already used by a completion, submission or earlier skip.
     case alreadyResolvedToday
@@ -28,9 +28,10 @@ public enum AccountabilityPlanner {
 
     public static let fallbackConsequence = AccountabilityTemplate(type: .pushUps, target: 50)
 
-    /// The consequence for skipping `habit`, or `nil` if skipping isn't allowed.
+    /// The consequence for skipping `habit`, or `nil` if skipping isn't allowed. Sessions and
+    /// daily/set-day amounts (e.g. 60 minutes of guitar) can be skipped; weekly amounts can't.
     public static func consequence(for habit: Habit, rules: ChallengeRules = ChallengeRules()) -> AccountabilityTemplate? {
-        guard rules.allowSkipping, habit.unit == .sessions else { return nil }
+        guard rules.allowSkipping, habit.unit == .sessions || habit.frequency != .weekly else { return nil }
         let template = habit.skipConsequence ?? rules.defaultSkipConsequence ?? fallbackConsequence
         return supportedTypes.contains(template.type) ? template : fallbackConsequence
     }
@@ -45,11 +46,23 @@ public enum AccountabilityPlanner {
         guard HabitSchedule.isScheduled(habit, on: day, calendar: calendar) else { throw SkipPlanError.notScheduled }
         guard rules.allowSkipping else { throw SkipPlanError.skippingNotAllowed }
         guard let template = consequence(for: habit, rules: rules) else { throw SkipPlanError.notSkippable }
-        guard CompletionPlanner.activeCompletions(for: habit, on: day, in: completions).count
-                < CompletionPlanner.maxSessionsPerDay(for: habit) else {
-            throw SkipPlanError.alreadyResolvedToday
+        let active = CompletionPlanner.activeCompletions(for: habit, on: day, in: completions)
+        if habit.unit == .sessions {
+            guard active.count < CompletionPlanner.maxSessionsPerDay(for: habit) else { throw SkipPlanError.alreadyResolvedToday }
+        } else {
+            // An amount habit can be skipped once per day, for whatever isn't logged yet.
+            guard !active.contains(where: { $0.method == .accountabilityExercise }),
+                  remainingAmount(habit, on: day, completions: completions) > 0 else {
+                throw SkipPlanError.alreadyResolvedToday
+            }
         }
         return template
+    }
+
+    /// Amount still open today for an amount habit (logged or submitted entries count).
+    public static func remainingAmount(_ habit: Habit, on day: DayKey, completions: [HabitCompletion]) -> Int {
+        let logged = CompletionPlanner.activeCompletions(for: habit, on: day, in: completions).reduce(0) { $0 + $1.quantity }
+        return max(0, habit.targetCount - logged)
     }
 
     /// Builds the skip. Call only after the participant has explicitly accepted the consequence;
@@ -66,7 +79,9 @@ public enum AccountabilityPlanner {
     ) throws -> SkipPlan {
         let template = try validateSkip(habit, on: day, completions: existing, rules: rules, calendar: calendar)
         let index = existing.filter { $0.habitId == habit.id && $0.day == day }.count
-        let completionId = "\(habit.id)_\(day)_\(index)"
+        let completionId = habit.unit == .sessions ? "\(habit.id)_\(day)_\(index)" : "\(habit.id)_\(day)_skip"
+        // A skip stands in for one session, or for the rest of today's amount.
+        let quantity = habit.unit == .sessions ? 1 : remainingAmount(habit, on: day, completions: existing)
         let deadline = acceptedAt.addingTimeInterval(TimeInterval(template.deadlineHours) * 3600)
 
         let task = AccountabilityTask(
@@ -90,7 +105,7 @@ public enum AccountabilityPlanner {
             habitId: habit.id,
             challengeId: habit.challengeId,
             day: day,
-            quantity: 1,
+            quantity: quantity,
             status: .accountabilityRequired,
             method: .accountabilityExercise,
             trackingCondition: condition,

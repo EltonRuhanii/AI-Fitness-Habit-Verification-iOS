@@ -38,7 +38,7 @@ final class EvidenceFlowModel {
         self.verificationService = verification
         self.criteria = VerificationCriteriaCatalog.bundled.criteria(for: habit.category)
         self.providerDescription = verification.providerDescription
-        self.quantity = habit.unit == .pages ? 20 : 15
+        self.quantity = store.defaultLogAmount(for: habit)
     }
 
     var isBusy: Bool { phase == .uploading || phase == .verifying }

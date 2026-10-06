@@ -21,6 +21,8 @@ final class HabitsStore {
     private(set) var completions: [HabitCompletion] = []
     private(set) var accountabilityTasks: [AccountabilityTask] = []
     private(set) var challenges: [Challenge] = []
+    /// True once the first challenge snapshot arrived, so setup isn't shown before data loads.
+    private(set) var challengesLoaded = false
     private(set) var loadState: LoadState = .loading
     private(set) var today: DayKey
     /// Incremented on every successful completion; drives success haptics.
@@ -106,6 +108,13 @@ final class HabitsStore {
 
     // MARK: Accountability
 
+    /// Suggested amount when logging: what's left of today's target (a skill's 60 minutes).
+    func defaultLogAmount(for habit: Habit) -> Int {
+        let remaining = AccountabilityPlanner.remainingAmount(habit, on: today, completions: completions)
+        if remaining > 0 { return remaining }
+        return habit.unit == .pages ? 20 : 15
+    }
+
     func canSkip(_ habit: Habit) -> Bool {
         AccountabilityPlanner.canSkip(habit, on: today, completions: completions, rules: rules, calendar: calendar)
     }
@@ -172,6 +181,7 @@ final class HabitsStore {
             do {
                 for try await challenges in challengeRepository.observeChallenges(userId: userId) {
                     self?.challenges = challenges
+                    self?.challengesLoaded = true
                     self?.completeFinishedChallenges()
                     self?.recomputeStreak()
                 }
@@ -235,9 +245,8 @@ final class HabitsStore {
         }
     }
 
-    /// Notification permission is requested in context: when the first habit is created.
-    private func requestNotificationsIfFirstHabit() {
-        guard activeHabits.isEmpty else { return }
+    /// Notification permission is requested in context: when the challenge is started.
+    private func requestNotifications() {
         Task { [notifications] in
             await notifications.requestAuthorizationIfNeeded()
             self.scheduleNotifications()
@@ -302,6 +311,7 @@ final class HabitsStore {
     /// Starts a challenge the participant has explicitly accepted. Saves the challenge first,
     /// then its habits (new template habits and adopted existing ones).
     func startChallenge(_ plan: ChallengePlan) throws {
+        requestNotifications()
         try challengeRepository.save(plan.challenge)
         for habit in plan.habits {
             try habitRepository.save(habit)
@@ -309,6 +319,31 @@ final class HabitsStore {
     }
 
     /// Abandons a challenge. Its habits keep their history but stop being due after today.
+    /// The app only runs in challenge mode: without an active or upcoming challenge the
+    /// participant has to set up their 90-day routine.
+    var needsChallengeSetup: Bool {
+        challengesLoaded && activeChallenge == nil && upcomingChallenge == nil
+    }
+
+    /// Plans and starts the 90-day challenge from the participant's routine. Habits from before
+    /// challenge mode (outside any challenge) stop being due so only the routine counts.
+    func startRoutine(_ setup: RoutineSetup, startDate: DayKey, rulesAccepted: Bool) throws {
+        let plan: ChallengePlan
+        do {
+            plan = try RoutinePlanner.plan(setup: setup, ownerId: userId, startDate: startDate,
+                                           existingChallenges: challenges, rulesAccepted: rulesAccepted,
+                                           today: today, calendar: calendar)
+        } catch let error as RoutineError {
+            throw AppError.validation(error.message)
+        } catch let error as ChallengePlanError {
+            throw AppError.validation(error.message)
+        }
+        for habit in activeHabits where habit.challengeId == nil {
+            try archive(habit)
+        }
+        try startChallenge(plan)
+    }
+
     func abandon(_ challenge: Challenge) throws {
         var abandoned = challenge
         abandoned.status = .abandoned
@@ -334,7 +369,6 @@ final class HabitsStore {
         var habit = habit
         habit.name = trimmed
         habit.verificationType = habit.requiresEvidence ? .photoAI : .manual
-        requestNotificationsIfFirstHabit()
         try habitRepository.save(habit)
     }
 
@@ -347,14 +381,6 @@ final class HabitsStore {
             archived.endDate = yesterday
         }
         try habitRepository.save(archived)
-    }
-
-    func addStarterHabits() throws {
-        requestNotificationsIfFirstHabit()
-        let existing = Set(activeHabits.map { $0.name.lowercased() })
-        for habit in HabitTemplates.disciplineStarter(userId: userId, startDate: today) where !existing.contains(habit.name.lowercased()) {
-            try habitRepository.save(habit)
-        }
     }
 
     /// Builds (but does not save) a pending completion for photo evidence submitted today.

@@ -36,7 +36,7 @@ struct HabitActionModifier: ViewModifier {
                 Text("This is recorded as a self-reported completion.")
             }
             .sheet(item: $quantityHabit) { habit in
-                LogQuantitySheet(habit: habit) { amount in
+                LogQuantitySheet(habit: habit, defaultAmount: store.defaultLogAmount(for: habit)) { amount in
                     perform { try store.logSelfReport(habit, quantity: amount) }
                 }
                 .presentationDetents([.medium])
@@ -85,10 +85,10 @@ struct LogQuantitySheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var amount: Int
 
-    init(habit: Habit, onLog: @escaping (Int) -> Void) {
+    init(habit: Habit, defaultAmount: Int, onLog: @escaping (Int) -> Void) {
         self.habit = habit
         self.onLog = onLog
-        _amount = State(initialValue: habit.unit == .pages ? 20 : 15)
+        _amount = State(initialValue: defaultAmount)
     }
 
     private let step = 5

@@ -5,7 +5,6 @@ struct HabitDetailView: View {
     @Environment(HabitsStore.self) private var store
     let habitId: String
 
-    @State private var editing = false
     @State private var actionTarget: Habit?
     @State private var verificationSheet: VerificationDetailSheet.Source?
     @State private var skipping = false
@@ -50,14 +49,6 @@ struct HabitDetailView: View {
                     .padding(.vertical, Theme.Spacing.sm)
                     .background(Theme.Palette.background)
             }
-        }
-        .toolbar {
-            if habit.isActive {
-                Button("Edit") { editing = true }
-            }
-        }
-        .sheet(isPresented: $editing) {
-            HabitEditorView(habit: habit, userId: store.userId, today: store.today, calendar: store.calendar)
         }
         .sheet(item: $verificationSheet) { source in
             VerificationDetailSheet(source: source)

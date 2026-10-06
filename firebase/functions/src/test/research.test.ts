@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
-import { initialAssignmentState, nextAssignment, shuffledBlock, type AssignmentState } from "../research/assignment";
+import { assignForDesign, initialAssignmentState, nextAssignment, shuffledBlock, STUDY_DESIGN, type AssignmentState } from "../research/assignment";
 import { buildDailyRecords, DAILY_HEADER, dailyCsv, eventsCsv } from "../research/records";
 import {
   addDays, DEFAULT_RULES, startOfWeek, summarizeHistory, weekday,
@@ -94,6 +94,19 @@ test("events CSV escapes fields and exports no names", () => {
 });
 
 // ---------- assignment ----------
+
+test("current study design assigns every participant to AI-assisted", () => {
+  assert.equal(STUDY_DESIGN, "ai-only");
+  let state = initialAssignmentState();
+  for (let i = 0; i < 10; i++) {
+    const next = assignForDesign(STUDY_DESIGN, state, Math.random);
+    assert.equal(next.condition, "aiAssisted");
+    assert.equal(next.method, "fixed-ai-assisted");
+    state = next.state;
+  }
+  assert.equal(state.assignedAiAssisted, 10);
+  assert.equal(assignForDesign("between-subjects", initialAssignmentState(), () => 0).method, "server-permuted-block-4");
+});
 
 test("permuted blocks: each block has two of each condition", () => {
   let seed = 42;

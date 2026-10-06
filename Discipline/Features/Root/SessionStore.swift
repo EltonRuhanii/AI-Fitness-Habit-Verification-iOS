@@ -103,7 +103,14 @@ final class SessionStore {
     /// The profile is normally created right after registration, but creating it lazily here
     /// also covers an app kill between the two steps and first sign-in on a new backend.
     private func loadOrCreateProfile(for user: AuthUser) async throws -> UserProfile {
-        if let existing = try await users.fetchProfile(uid: user.uid) {
+        if var existing = try await users.fetchProfile(uid: user.uid) {
+            // Demo accounts created under the earlier two-condition design are moved to the
+            // current AI-assisted-only design (on Firebase the server owns the condition).
+            let current = ConditionAssignment.provisional()
+            if AppConfiguration.current.backend == .demo && existing.trackingCondition != current {
+                existing.trackingCondition = current
+                try await users.createProfile(existing)
+            }
             return existing
         }
         let profile = UserProfile(
@@ -176,6 +183,7 @@ final class SessionStore {
 /// the profile and picks that up. In demo mode this random value is final.
 enum ConditionAssignment {
     static func provisional() -> TrackingCondition {
-        AppConfiguration.current.forcedCondition ?? (Bool.random() ? .manual : .aiAssisted)
+        // Current study design: everyone is AI-assisted (see STUDY_DESIGN in the functions).
+        AppConfiguration.current.forcedCondition ?? .aiAssisted
     }
 }

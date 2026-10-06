@@ -74,7 +74,7 @@ test("verified: all criteria pass with high confidence", async () => {
   assert.equal(record.status, "verified");
   assert.equal(record.confidence, 0.92);
   assert.equal(record.model, "fake-model-served");
-  assert.equal(record.promptVersion, "criteria-v1/prompt-v1");
+  assert.equal(record.promptVersion, "criteria-v2/prompt-v1");
   assert.equal(record.confidenceThreshold, 0.7);
   assert.deepEqual(record.criteria.map((c) => c.criterionId), gymCriteria.map((c) => c.id));
   assert.equal(store.commits[0].completionStatus, "verified");

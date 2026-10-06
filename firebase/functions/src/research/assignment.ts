@@ -7,6 +7,15 @@ import type { Condition } from "./records";
  */
 export const ASSIGNMENT_METHOD = "server-permuted-block-4";
 
+/**
+ * Current study design. "ai-only": every participant uses AI-assisted verification (the
+ * manual condition stays supported in data and code but is never assigned). Switch to
+ * "between-subjects" to assign conditions with permuted blocks again.
+ */
+export type StudyDesign = "ai-only" | "between-subjects";
+export const STUDY_DESIGN: StudyDesign = "ai-only";
+export const AI_ONLY_METHOD = "fixed-ai-assisted";
+
 export interface AssignmentState {
   /** Remaining conditions in the current block. */
   block: Condition[];
@@ -23,6 +32,20 @@ export function shuffledBlock(random: () => number): Condition[] {
     [block[i], block[j]] = [block[j], block[i]];
   }
   return block;
+}
+
+/** Assignment under a study design; returns the method recorded on the profile. */
+export function assignForDesign(design: StudyDesign, state: AssignmentState, random: () => number):
+  { condition: Condition; state: AssignmentState; method: string } {
+  if (design === "ai-only") {
+    return {
+      condition: "aiAssisted",
+      state: { ...state, assignedAiAssisted: state.assignedAiAssisted + 1 },
+      method: AI_ONLY_METHOD,
+    };
+  }
+  const next = nextAssignment(state, random);
+  return { ...next, method: ASSIGNMENT_METHOD };
 }
 
 /** Pure: next condition and the updated state. */

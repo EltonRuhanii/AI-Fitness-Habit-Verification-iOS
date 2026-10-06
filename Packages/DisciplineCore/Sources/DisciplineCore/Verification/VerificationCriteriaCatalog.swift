@@ -8,11 +8,16 @@ public struct VerificationCriteriaCatalog: Decodable, Sendable {
     public let defaultConfidenceThreshold: Double
     public let flags: [String]
     public let sharedCriteria: [VerificationCriterion]
+    /// Shared criteria a category replaces with its own (e.g. skills: a photo of a screen
+    /// showing a learning app is legitimate evidence).
+    public let sharedCriteriaExemptions: [String: [String]]?
     public let categories: [String: [VerificationCriterion]]
 
     /// Shared criteria first (e.g. "genuine photograph"), then category-specific ones.
     public func criteria(for category: HabitCategory) -> [VerificationCriterion] {
-        sharedCriteria + (categories[category.rawValue] ?? categories[HabitCategory.custom.rawValue] ?? [])
+        let exempt = Set(sharedCriteriaExemptions?[category.rawValue] ?? [])
+        return sharedCriteria.filter { !exempt.contains($0.id) }
+            + (categories[category.rawValue] ?? categories[HabitCategory.custom.rawValue] ?? [])
     }
 
     public static func decode(from data: Data) throws -> VerificationCriteriaCatalog {
